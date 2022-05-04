@@ -10,6 +10,8 @@
 #include <time.h>
 
 
+
+
 int main(int argc, char *argv[])
 {   
 
@@ -33,6 +35,12 @@ int main(int argc, char *argv[])
     int server_port = atoi(argv[2]);
 
     strcpy(server_ip,argv[1]);
+
+    //getting a random port for the client
+    time_t t;
+    srand((unsigned) time(&t));
+    int client_port_no = 1025+(rand()%100);
+
 
 
     //Socket Creation
@@ -77,7 +85,7 @@ int main(int argc, char *argv[])
 
         //QUIT command 
         if (strncmp(command, "QUIT",4) == 0 ||  strncmp(command, "quit",4) == 0){
-            send(server_fd, command, sizeof(command), 0);
+            send(server_fd, command, strlen(command), 0);
             close(server_fd);
             break;
         }
@@ -85,7 +93,7 @@ int main(int argc, char *argv[])
 
         //USER command
         else if(strncmp(command, "USER",4) == 0 ||  strncmp(command, "user",4) == 0){
-            send(server_fd, command, sizeof(command), 0);
+            send(server_fd, command, strlen(command), 0);
             recv(server_fd, response, sizeof(response), 0);
             printf("%s\n", response);
         }
@@ -93,7 +101,7 @@ int main(int argc, char *argv[])
 
         //PASS command
         else if(strncmp(command, "PASS",4) == 0 ||  strncmp(command, "pass",4) == 0){
-            send(server_fd, command, sizeof(command), 0);
+            send(server_fd, command, strlen(command), 0);
             recv(server_fd, response, sizeof(response), 0);
             printf("%s\n", response);
         }
@@ -102,18 +110,187 @@ int main(int argc, char *argv[])
         //STOR command - upload
         else if(strncmp(command, "STOR",4) == 0 ||  strncmp(command, "stor",4) == 0){
 
+            //need to upload file from current client directory to current server directory
+            //things to do:
+            
+            //1.see if file exists
+            char new_command[256];
+            strcpy(new_command,command);
+            char delim[] = " ";
+            char *ptr = strtok(command,delim);
+            ptr = strtok(NULL,delim);
+
+            char filename[256];
+            strcpy(filename,ptr);
+            FILE *fptr = fopen(filename,"r");		//open requested file
+            if(fptr == NULL) //serving error message in case file not present in disk
+            {	
+                perror("File does not exist.");
+                continue;
+            }
+            
+            else
+            {
+
+                
+
+                //2.sending client port over to server using PORT command: Server responds with: 200 PORT command successful.
+
+                int p1,p2;
+                p1 = client_port_no/256;
+                p2 = client_port_no%256;
+                char port_command[256] = "PORT 127,0,0,1,";
+                char p_1[256];
+                char p_2[256];
+                sprintf(p_1, "%d", p1);
+                sprintf(p_2, "%d", p2);
+                strcat(port_command,p_1);
+                strcat(port_command,",");
+                strcat(port_command,p_2);
+                bzero(&response,sizeof(response));
+                send(server_fd, port_command, strlen("PORT"), 0);
+                recv(server_fd, response, sizeof(response), 0);
+                printf("%s\n", response);
+
+                //3.sending STOR command: Server responds with: 150 File status okay; about to open. data connection. or 530: Not Logged in.
+                bzero(&response,sizeof(response));
+                send(server_fd, new_command, strlen(new_command), 0);
+                recv(server_fd, response, sizeof(response), 0);
+                printf("%s\n", response);
+
+                if(strcmp(response,"150 File status okay; about to open. data connection.") == 0) //error handling in case file is invalid
+                {   //4.create a data connection by:
+                
+   
+                    //a.opening and listening to a port >1024 in the client
+                    
+                    int client_receiver_sd = socket(AF_INET,SOCK_STREAM,0);
+                    if(client_receiver_sd<0)
+                    {
+                        perror("Client Receiver Socket creation:");
+                        exit(-1);
+                    }
+                    //setsock
+                    int value  = 1;
+                    setsockopt(client_receiver_sd,SOL_SOCKET,SO_REUSEADDR,&value,sizeof(value)); //&(int){1},sizeof(int)
+                    struct sockaddr_in client_receiver_addr, server_data_addr;
+
+                    bzero(&client_receiver_addr,sizeof(client_receiver_addr));
+
+                    client_receiver_addr.sin_family = AF_INET;
+                    client_receiver_addr.sin_port = htons(client_port_no);
+                    client_receiver_addr.sin_addr.s_addr = htonl(INADDR_ANY); //INADDR_ANY, INADDR_LOOP
+
+                    //bind
+                    if(bind(client_receiver_sd, (struct sockaddr*)&client_receiver_addr,sizeof(client_receiver_addr))<0)
+                    {
+                        perror("Client Receiver Socket: bind failed");
+                        exit(-1);
+                    }
+                    //listen
+                    if(listen(client_receiver_sd,5)<0)
+                    {
+                        perror("Client Receiver Socket: listen failed");
+                        close(client_receiver_sd);
+                        exit(-1);
+                    }
+
+                    //b.server connects to that port using port 20; client accepts connection
+                    unsigned int server_data_len = sizeof(server_data_addr);
+                    int server_data_sd = accept(client_receiver_sd,(struct sockaddr *) &server_data_addr,&server_data_len);
+
+                    //5.after connection is established, send file data from client to server
+                    
+
+                    char line[256];
+                    while (fgets(line, sizeof(line), fptr) != NULL) 
+                    {
+                        
+                        if (send(server_data_sd, line, sizeof(line), 0) == -1) //send the server response to the client
+                        {
+                            perror("Error Sending file..\n");
+                            break;
+                        }
+                        memset(line, 0, sizeof(line));
+                    }
+                    // close the file 
+                    fclose(fptr);
+
+                    char server_message[256]; //to receive server's message 
+                    bzero(server_message,sizeof(server_message));
+                    recv(server_data_sd,server_message,sizeof(server_message),0); // receive message from server: 226 Transfer completed.
+                    printf("%s\n",server_message);
+
+                    //6.close connection
+                    close(client_receiver_sd);
+
+                    client_port_no++; //update client port no
+                    }
+                else{
+                    printf("%s",response);
+                }
+
+            }
+
         }
 
 
         //RETR command - download
         else if(strncmp(command, "RETR",4) == 0 ||  strncmp(command, "retr",4) == 0){
+            //need to download file from current server directory to current client directory
+            //things to do:
+            
 
+
+
+
+            //1.sending client port over to server using PORT command: Server responds with: 200 PORT command successful.
+
+                int p1,p2;
+                p1 = client_port_no/256;
+                p2 = client_port_no%256;
+                char port_command[256] = "PORT 127,0,0,1,";
+                char p_1[256];
+                char p_2[256];
+                sprintf(p_1, "%d", p1);
+                sprintf(p_2, "%d", p2);
+                strcat(port_command,p_1);
+                strcat(port_command,",");
+                strcat(port_command,p_2);
+                bzero(&response,sizeof(response));
+                send(server_fd, port_command, strlen("PORT"), 0);
+                recv(server_fd, response, sizeof(response), 0);
+                printf("%s\n", response);
+
+            //2.sending STOR command: Server responds with: 150 File status okay; about to open. data connection or 550 No such file or directory or 530: Not Logged in.
+                char new_command[256];
+                strcpy(new_command,command);
+                char delim[] = " ";
+                char *ptr = strtok(command,delim);
+                ptr = strtok(NULL,delim);
+
+                char filename[256];
+                strcpy(filename,ptr);
+
+                bzero(&response,sizeof(response));
+                send(server_fd, new_command, strlen(new_command), 0);
+                recv(server_fd, response, sizeof(response), 0);
+                printf("%s\n", response);
+
+
+
+            //1.create a data connection by:
+                //a.opening and listening to a port >1024 in the client
+                //b.sending that over to server using PORT command
+                //c.server connects to that port using port 20
+            //2.after connection is established, send file data from server to client
+            //3.close connection
         }
 
 
         //LIST command
         else if(strncmp(command, "LIST",4) == 0 ||  strncmp(command, "list",4) == 0){
-            send(server_fd, command, sizeof(command), 0);
+            send(server_fd, command, strlen(command), 0);
             recv(server_fd, response, sizeof(response), 0);
             printf("%s\n", response);
         }
@@ -127,7 +304,7 @@ int main(int argc, char *argv[])
 
         //CWD command
         else if(strncmp(command, "CWD",3) == 0 ||  strncmp(command, "cwd",3) == 0){
-            send(server_fd, command, sizeof(command), 0);
+            send(server_fd, command, strlen(command), 0);
             recv(server_fd, response, sizeof(response), 0);
             printf("%s\n", response);
         }
@@ -153,7 +330,7 @@ int main(int argc, char *argv[])
 
         //PWD command
         else if(strncmp(command, "PWD",3) == 0 ||  strncmp(command, "pwd",3) == 0){
-            send(server_fd, command, sizeof(command), 0);
+            send(server_fd, command, strlen(command), 0);
             recv(server_fd, response, sizeof(response), 0);
             printf("%s\n", response);
         }
@@ -171,7 +348,7 @@ int main(int argc, char *argv[])
         else{
             char invalid[256];
             strcpy(invalid, "INVALID");
-            send(server_fd, invalid, sizeof(invalid), 0);
+            send(server_fd, invalid, strlen(invalid), 0);
             recv(server_fd, response, sizeof(response), 0);
             printf("%s\n", response);
         }
