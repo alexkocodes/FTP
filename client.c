@@ -164,40 +164,40 @@ int main(int argc, char *argv[])
    
                     //a.opening and listening to a port >1024 in the client
                     
-                    int client_receiver_sd = socket(AF_INET,SOCK_STREAM,0);
-                    if(client_receiver_sd<0)
+                    int client_sender_sd = socket(AF_INET,SOCK_STREAM,0);
+                    if(client_sender_sd<0)
                     {
                         perror("Client Receiver Socket creation:");
                         exit(-1);
                     }
                     //setsock
                     int value  = 1;
-                    setsockopt(client_receiver_sd,SOL_SOCKET,SO_REUSEADDR,&value,sizeof(value)); //&(int){1},sizeof(int)
-                    struct sockaddr_in client_receiver_addr, server_data_addr;
+                    setsockopt(client_sender_sd,SOL_SOCKET,SO_REUSEADDR,&value,sizeof(value)); //&(int){1},sizeof(int)
+                    struct sockaddr_in client_sender_addr, server_data_addr;
 
-                    bzero(&client_receiver_addr,sizeof(client_receiver_addr));
+                    bzero(&client_sender_addr,sizeof(client_sender_addr));
 
-                    client_receiver_addr.sin_family = AF_INET;
-                    client_receiver_addr.sin_port = htons(client_port_no);
-                    client_receiver_addr.sin_addr.s_addr = htonl(INADDR_ANY); //INADDR_ANY, INADDR_LOOP
+                    client_sender_addr.sin_family = AF_INET;
+                    client_sender_addr.sin_port = htons(client_port_no);
+                    client_sender_addr.sin_addr.s_addr = htonl(INADDR_ANY); //INADDR_ANY, INADDR_LOOP
 
                     //bind
-                    if(bind(client_receiver_sd, (struct sockaddr*)&client_receiver_addr,sizeof(client_receiver_addr))<0)
+                    if(bind(client_sender_sd, (struct sockaddr*)&client_sender_addr,sizeof(client_sender_addr))<0)
                     {
                         perror("Client Receiver Socket: bind failed");
                         exit(-1);
                     }
                     //listen
-                    if(listen(client_receiver_sd,5)<0)
+                    if(listen(client_sender_sd,5)<0)
                     {
                         perror("Client Receiver Socket: listen failed");
-                        close(client_receiver_sd);
+                        close(client_sender_sd);
                         exit(-1);
                     }
 
                     //b.server connects to that port using port 20; client accepts connection
                     unsigned int server_data_len = sizeof(server_data_addr);
-                    int server_data_sd = accept(client_receiver_sd,(struct sockaddr *) &server_data_addr,&server_data_len);
+                    int server_data_sd = accept(client_sender_sd,(struct sockaddr *) &server_data_addr,&server_data_len);
 
                     //5.after connection is established, send file data from client to server
                     
@@ -222,12 +222,12 @@ int main(int argc, char *argv[])
                     printf("%s\n",server_message);
 
                     //6.close connection
-                    close(client_receiver_sd);
+                    close(client_sender_sd);
 
                     client_port_no++; //update client port no
                     }
                 else{
-                    printf("%s",response);
+                    continue;
                 }
 
             }
@@ -277,22 +277,184 @@ int main(int argc, char *argv[])
                 recv(server_fd, response, sizeof(response), 0);
                 printf("%s\n", response);
 
+                if(strcmp(response,"150 File status okay; about to open. data connection.") == 0)
+                {
+                    //4.create a data connection by:
+                
+   
+                    //a.opening and listening to a port >1024 in the client
+                    
+                    int client_receiver_sd = socket(AF_INET,SOCK_STREAM,0);
+                    if(client_receiver_sd<0)
+                    {
+                        perror("Client Receiver Socket creation:");
+                        exit(-1);
+                    }
+                    //setsock
+                    int value  = 1;
+                    setsockopt(client_receiver_sd,SOL_SOCKET,SO_REUSEADDR,&value,sizeof(value)); //&(int){1},sizeof(int)
+                    struct sockaddr_in client_receiver_addr, server_data_addr;
 
+                    bzero(&client_receiver_addr,sizeof(client_receiver_addr));
 
-            //1.create a data connection by:
-                //a.opening and listening to a port >1024 in the client
-                //b.sending that over to server using PORT command
-                //c.server connects to that port using port 20
-            //2.after connection is established, send file data from server to client
-            //3.close connection
+                    client_receiver_addr.sin_family = AF_INET;
+                    client_receiver_addr.sin_port = htons(client_port_no);
+                    client_receiver_addr.sin_addr.s_addr = htonl(INADDR_ANY); //INADDR_ANY, INADDR_LOOP
+
+                    //bind
+                    if(bind(client_receiver_sd, (struct sockaddr*)&client_receiver_addr,sizeof(client_receiver_addr))<0)
+                    {
+                        perror("Client Receiver Socket: bind failed");
+                        exit(-1);
+                    }
+                    //listen
+                    if(listen(client_receiver_sd,5)<0)
+                    {
+                        perror("Client Receiver Socket: listen failed");
+                        close(client_receiver_sd);
+                        exit(-1);
+                    }
+
+                    //b.server connects to that port using port 20; client accepts connection
+                    unsigned int server_data_len = sizeof(server_data_addr);
+                    int server_data_sd = accept(client_receiver_sd,(struct sockaddr *) &server_data_addr,&server_data_len);
+
+                    //5.after connection is established, send file data from server to client
+                    char delim[] = " ";
+                    char *file_name = strtok(command, delim);
+                    file_name = strtok(NULL, delim);
+
+                
+                    char client_file[50];
+
+                    // add "Client-" to the file in case FTPserver and FTPclient are in same directory 
+                    strcpy(client_file, "Client-");
+                    strcat(client_file, file_name);
+
+                    FILE *file;
+                    // Create the file for writing 
+                    if (!(file = fopen(client_file, "w")))
+                    {
+                        perror("Sorry, this file can't be created.");
+                        return 0;
+                    }
+                    else
+                    {
+                        char server_data[256];
+
+                        int server_return_value = 0;
+                        // start receiving data from the server
+                        memset(server_data, 0, sizeof(server_data));
+                        while ((server_return_value = recv(server_data_sd, server_data, sizeof(server_data), 0)) > 0)
+                        {
+                            // write received data into the file 
+                            fputs(server_data, file);
+                            memset(server_data, 0, sizeof(server_data));
+                        }
+
+                        fclose(file);
+                    }
+
+                    fflush(stdout);
+
+                    char server_message[256]; //to receive server's message 
+                    bzero(server_message,sizeof(server_message));
+                    recv(server_data_sd,server_message,sizeof(server_message),0); // receive message from server: 226 Transfer completed.
+                    printf("%s\n",server_message);
+
+                    
+                    //6.close connection
+                    close(client_receiver_sd);
+                    client_port_no++;
+                }
+                else
+                {
+                   continue;
+                }
+                fflush(stdout);
+            
+            
         }
 
 
         //LIST command
         else if(strncmp(command, "LIST",4) == 0 ||  strncmp(command, "list",4) == 0){
-            send(server_fd, command, strlen(command), 0);
-            recv(server_fd, response, sizeof(response), 0);
-            printf("%s\n", response);
+            
+            //1.sending client port over to server using PORT command: Server responds with: 200 PORT command successful.
+
+                int p1,p2;
+                p1 = client_port_no/256;
+                p2 = client_port_no%256;
+                char port_command[256] = "PORT 127,0,0,1,";
+                char p_1[256];
+                char p_2[256];
+                sprintf(p_1, "%d", p1);
+                sprintf(p_2, "%d", p2);
+                strcat(port_command,p_1);
+                strcat(port_command,",");
+                strcat(port_command,p_2);
+                bzero(&response,sizeof(response));
+                send(server_fd, port_command, strlen("PORT"), 0);
+                recv(server_fd, response, sizeof(response), 0);
+                printf("%s\n", response);
+
+            //2.sending LIST command: Server responds with: 150 File status okay; about to open. data connection.
+                
+                bzero(&response,sizeof(response));
+                send(server_fd, command, strlen(command), 0);
+                recv(server_fd, response, sizeof(response), 0);
+                printf("%s\n", response);
+
+            //3.creating data connection
+                //a.opening and listening to a port >1024 in the client
+                    
+                    int client_receiver_sd = socket(AF_INET,SOCK_STREAM,0);
+                    if(client_receiver_sd<0)
+                    {
+                        perror("Client Receiver Socket creation:");
+                        exit(-1);
+                    }
+                    //setsock
+                    int value  = 1;
+                    setsockopt(client_receiver_sd,SOL_SOCKET,SO_REUSEADDR,&value,sizeof(value)); //&(int){1},sizeof(int)
+                    struct sockaddr_in client_receiver_addr, server_data_addr;
+
+                    bzero(&client_receiver_addr,sizeof(client_receiver_addr));
+
+                    client_receiver_addr.sin_family = AF_INET;
+                    client_receiver_addr.sin_port = htons(client_port_no);
+                    client_receiver_addr.sin_addr.s_addr = htonl(INADDR_ANY); //INADDR_ANY, INADDR_LOOP
+
+                    //bind
+                    if(bind(client_receiver_sd, (struct sockaddr*)&client_receiver_addr,sizeof(client_receiver_addr))<0)
+                    {
+                        perror("Client Receiver Socket: bind failed");
+                        exit(-1);
+                    }
+                    //listen
+                    if(listen(client_receiver_sd,5)<0)
+                    {
+                        perror("Client Receiver Socket: listen failed");
+                        close(client_receiver_sd);
+                        exit(-1);
+                    }
+
+                    //b.server connects to that port using port 20; client accepts connection
+                    unsigned int server_data_len = sizeof(server_data_addr);
+                    int server_data_sd = accept(client_receiver_sd,(struct sockaddr *) &server_data_addr,&server_data_len);
+
+
+                    //c.server sends data to client
+
+                    char server_message[256]; //to receive server's message 
+                    bzero(server_message,sizeof(server_message));
+                    recv(server_data_sd,server_message,sizeof(server_message),0); // receive message from server: <list of files> 226 Transfer completed.
+                    printf("%s\n",server_message);
+                    fflush(stdout);
+                    
+            //4.close connection
+            close(client_receiver_sd);
+            client_port_no++;
         }
 
 
