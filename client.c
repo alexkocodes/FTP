@@ -20,11 +20,11 @@ int main(int argc, char *argv[])
         printf("Invalid number of arguements. Please only enter IP address and Port Number.");
         return 0;
     }
-    else if (strlen(argv[1] > 15)){
+    else if (strlen(argv[1]) > 15){
         printf("Length of IP Address is invalid. Should be 15 characters or less.");
         return 0;
     }
-    else if (strlen(argv[2] > 5)){
+    else if (strlen(argv[2]) > 5){
         printf("Length of Port Number is invalid. Should be 5 characters or less.");
         return 0;
     }
@@ -481,7 +481,7 @@ int main(int argc, char *argv[])
             foldername = strtok(NULL,delim);
 
             
-            printf("Changing to folder %s and executing %s\n", foldername);
+            printf("Changing to folder %s\n", foldername);
             if (chdir(foldername) != 0){
                 printf("Change to %s failed\n", foldername);
             } 
