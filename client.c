@@ -36,10 +36,7 @@ int main(int argc, char *argv[])
 
     strcpy(server_ip,argv[1]);
 
-    //getting a random port for the client
-    time_t t;
-    srand((unsigned) time(&t));
-    int client_port_no = 1025+(rand()%100);
+    
 
 
 
@@ -65,9 +62,21 @@ int main(int argc, char *argv[])
         perror("Connection Failed.");
         exit(-1);
     }
-
     printf("Connected to server with IP: %s and Port: %d",server_ip,server_port);
 
+    socklen_t len = sizeof(server_addr);
+    if (getsockname(server_fd, (struct sockaddr *)&server_addr, &len) == -1)
+    {
+        perror("Error in getsockname");
+        return 0;
+    }
+
+    //getting client port number
+    
+    int client_port_no = ntohs(server_addr.sin_port);
+
+    
+    printf("Client port number: %d",client_port_no);
 
     //Beginning of FTP User Interface
 
