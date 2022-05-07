@@ -10,24 +10,73 @@
 #include <time.h>
 
 #define MAX_SOCKET_NUM 10
+#define MAX_USERS 10
 
-struct Users{
-	char* username;
+typedef struct User{
+	char *username;
 	char *password;
 	int sock_num;
-};
+	int login_status;
+} User;
 
 
 int main()
 {
 
-	// creating user profiles
-	struct Users user1;
+	// read from a txt file
+	char *filename = "userinfo.txt";
+    FILE *fp = fopen(filename, "r");
 
-	user1.username = "Alex";
-	user1.password = "pass";
-	user1.username = 0;
+    if (fp == NULL)
+    {
+        printf("Error: could not open file %s", filename);
+        return 1;
+    }
 
+    // reading line by line, max 256 bytes
+    char buffer[256];
+	
+	User* all_users = malloc(MAX_USERS * sizeof(*all_users));
+	int counter = 0;
+
+    while (fgets(buffer, 256, fp)){
+		buffer[strcspn(buffer, "\n")] = 0;
+		char * token = strtok(buffer, " ");
+		int i = 0;
+
+		// all_users[counter].username = malloc(256);
+		// all_users[counter].password = malloc(256);
+
+		// loop through this line to extract all other tokens
+		while( token != NULL && strcmp(token, "\n") !=0 ) {
+			// printf( " %lu\n", sizeof(&token) ); //printing each token
+			if(i == 0){
+				all_users[counter].username = malloc(128); // allocate memory for username
+				strcpy(all_users[counter].username, token);
+			}
+			else if(i == 1){
+				all_users[counter].password = malloc(128); // allocate memory for password
+				strcpy(all_users[counter].password, token);	
+			}
+			token = strtok(NULL, " ");
+			i += 1;
+			
+		}
+		all_users[counter].sock_num = 0;
+		all_users[counter].login_status = 0;
+		counter += 1;
+   	}
+
+	for(int i=0; i<counter; i++){
+		printf( "Username: %s\n", all_users[i].username ); //printing each user's username
+		printf( "Password: %s\n", all_users[i].password ); //printing each user's password
+	}
+	// when to free them?
+
+
+
+    // close the file
+    fclose(fp);
 
 
 	//1. socket
@@ -124,7 +173,13 @@ int main()
 		}
 	}	
 
-	close(server_fd);										//close the master/server socket
-	//6. close
+	close(server_fd);	
+
+	//free the memory
+	for(int i=0; i<counter; i++){
+		free(all_users[i].username ); 
+		free(all_users[i].password );
+	}
+
 	return 0;
 }
