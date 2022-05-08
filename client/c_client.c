@@ -85,7 +85,7 @@ int main(int argc, char *argv[])
 
     //facilitating command response interaction between client and server
     char command[256];
-    char response[256];
+    char response[512];
 
 
     while(1){
@@ -490,6 +490,8 @@ int main(int argc, char *argv[])
         else if(strncmp(command, "CWD",3) == 0 ||  strncmp(command, "cwd",3) == 0){
             send(server_fd, command, strlen(command), 0);
             recv(server_fd, response, sizeof(response), 0);
+            // char string_terminate = '\0';
+            // strncat(response,&string_terminate,1);
             printf("%s\n", response);
         }
 

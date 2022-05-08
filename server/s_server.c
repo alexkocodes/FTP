@@ -86,11 +86,28 @@ void handle_connection(int client_sd, struct Users *user_array, int *socket_list
         }
         else if(strncmp(client_command, "PASS",4) == 0 ||  strncmp(client_command, "pass",4) == 0)
         {
-
+            
         }
         else if(strncmp(client_command, "CWD",3) == 0 ||  strncmp(client_command, "cwd",3) == 0)
         {
+            cptr = strtok(NULL,delim);
+            char foldername[256];
+            strcpy(foldername,cptr);
+            foldername[strcspn(foldername, "\r\n")] = 0; //removing carriage return
 
+            if (chdir(foldername) == 0){
+                strcpy(server_response,"200 directory changed to pathname/foldername.\n");
+                strcat(server_response,foldername);
+                // send(client_sd,foldername,strlen(foldername),0);
+                system("pwd");
+            }
+            else{
+                strcpy(server_response,"550 No such file or directory.");
+                // send(client_sd,server_response,strlen(server_response),0);
+                // strcat(server_response,foldername);
+            }
+        
+            send(client_sd,server_response,strlen(server_response),0);
         }
         else if(strncmp(client_command, "PWD",3) == 0 ||  strncmp(client_command, "pwd",3) == 0)
         {
