@@ -94,7 +94,7 @@ void handle_connection(int client_sd, struct Users *user_array, int *socket_list
             char foldername[256];
             strcpy(foldername,cptr);
             foldername[strcspn(foldername, "\r\n")] = 0; //removing carriage return
-
+            bzero(&server_response, sizeof(server_response));
             if (chdir(foldername) == 0){
                 strcpy(server_response,"200 directory changed to pathname/foldername.\n");
                 strcat(server_response,foldername);
@@ -111,7 +111,14 @@ void handle_connection(int client_sd, struct Users *user_array, int *socket_list
         }
         else if(strncmp(client_command, "PWD",3) == 0 ||  strncmp(client_command, "pwd",3) == 0)
         {
-
+            char wd[256];
+            getcwd(wd, sizeof(wd));
+            bzero(&server_response, sizeof(server_response));
+            strcpy(server_response,"257 pathname.\n");
+            
+            
+            strcat(server_response,wd);
+            send(client_sd,server_response,strlen(server_response),0);
         }
         else if(strncmp(client_command, "PORT",3) == 0 ||  strncmp(client_command, "port",3) == 0)
         {

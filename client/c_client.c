@@ -489,9 +489,11 @@ int main(int argc, char *argv[])
         //CWD command
         else if(strncmp(command, "CWD",3) == 0 ||  strncmp(command, "cwd",3) == 0){
             send(server_fd, command, strlen(command), 0);
+            bzero(&response,sizeof(response));
             recv(server_fd, response, sizeof(response), 0);
             // char string_terminate = '\0';
             // strncat(response,&string_terminate,1);
+            fflush(stdout);
             printf("%s\n", response);
         }
 
@@ -517,7 +519,9 @@ int main(int argc, char *argv[])
         //PWD command
         else if(strncmp(command, "PWD",3) == 0 ||  strncmp(command, "pwd",3) == 0){
             send(server_fd, command, strlen(command), 0);
+            bzero(&response,sizeof(response));
             recv(server_fd, response, sizeof(response), 0);
+            fflush(stdout);
             printf("%s\n", response);
         }
 
