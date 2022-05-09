@@ -65,7 +65,7 @@ int main(int argc, char *argv[])
         perror("Connection Failed.");
         exit(-1);
     }
-    printf("Connected to server with IP: %s and Port: %d",server_ip,server_port);
+    printf("Connected to server with IP: %s and Port: %d\n",server_ip,server_port);
 
     socklen_t len = sizeof(server_addr);
     if (getsockname(server_fd, (struct sockaddr *)&server_addr, &len) == -1)
@@ -118,6 +118,7 @@ int main(int argc, char *argv[])
             
             recv(server_fd, response, sizeof(response), 0);
             printf("%s\n", response);
+            fflush(stdout);
         }
 
 
@@ -157,7 +158,7 @@ int main(int argc, char *argv[])
                 
 
                 //2.sending client port over to server using PORT command: Server responds with: 200 PORT command successful.
-
+                client_port_no++; //update client port no
                 int p1,p2;
                 p1 = client_port_no/256;
                 p2 = client_port_no%256;
@@ -228,14 +229,14 @@ int main(int argc, char *argv[])
                     while (fgets(line, sizeof(line), fptr) != NULL) 
                     {
                         
-                        if (send(server_data_sd, line, sizeof(line), 0) == -1) //send the server response to the client
+                        if (send(server_data_sd, line, sizeof(line), 0) == -1) 
                         {
                             perror("Error Sending file..\n");
                             break;
                         }
                         memset(line, 0, sizeof(line));
                     }
-                    // close the file 
+                    
                     fclose(fptr);
 
                     char server_message[256]; //to receive server's message 
@@ -246,8 +247,8 @@ int main(int argc, char *argv[])
                     //6.close connection
                     close(client_sender_sd);
 
-                    client_port_no++; //update client port no
-                    }
+                    
+                }
                 else{
                     continue;
                 }
@@ -267,7 +268,7 @@ int main(int argc, char *argv[])
 
 
             //1.sending client port over to server using PORT command: Server responds with: 200 PORT command successful.
-
+                client_port_no++;
                 int p1,p2;
                 p1 = client_port_no/256;
                 p2 = client_port_no%256;
@@ -387,7 +388,7 @@ int main(int argc, char *argv[])
                     
                     //6.close connection
                     close(client_receiver_sd);
-                    client_port_no++;
+                    
                 }
                 else
                 {
@@ -403,7 +404,7 @@ int main(int argc, char *argv[])
         else if(strncmp(command, "LIST",4) == 0 ||  strncmp(command, "list",4) == 0){
             
             //1.sending client port over to server using PORT command: Server responds with: 200 PORT command successful.
-
+                client_port_no += 1;
                 int p1,p2;
                 p1 = client_port_no/256;
                 p2 = client_port_no%256;
@@ -416,7 +417,7 @@ int main(int argc, char *argv[])
                 strcat(port_command,",");
                 strcat(port_command,p_2);
                 bzero(&response,sizeof(response));
-                send(server_fd, port_command, strlen("PORT"), 0);
+                send(server_fd, port_command, strlen(port_command), 0);
                 recv(server_fd, response, sizeof(response), 0);
                 printf("%s\n", response);
 
@@ -429,7 +430,7 @@ int main(int argc, char *argv[])
 
             //3.creating data connection
                 //a.opening and listening to a port >1024 in the client
-                    
+                if(strcmp(response,"150 File status okay; about to open. data connection.") == 0){
                     int client_receiver_sd = socket(AF_INET,SOCK_STREAM,0);
                     if(client_receiver_sd<0)
                     {
@@ -437,15 +438,23 @@ int main(int argc, char *argv[])
                         exit(-1);
                     }
                     //setsock
-                    int value  = 1;
-                    setsockopt(client_receiver_sd,SOL_SOCKET,SO_REUSEADDR,&value,sizeof(value)); //&(int){1},sizeof(int)
-                    struct sockaddr_in client_receiver_addr, server_data_addr;
+                    // int value  = 1;
+                    // setsockopt(client_receiver_sd,SOL_SOCKET,SO_REUSEADDR,&value,sizeof(value)); //&(int){1},sizeof(int)
+                    // struct sockaddr_in client_receiver_addr;
 
-                    bzero(&client_receiver_addr,sizeof(client_receiver_addr));
+                    // bzero(&client_receiver_addr,sizeof(client_receiver_addr));
 
-                    client_receiver_addr.sin_family = AF_INET;
-                    client_receiver_addr.sin_port = htons(client_port_no);
-                    client_receiver_addr.sin_addr.s_addr = htonl(INADDR_ANY); //INADDR_ANY, INADDR_LOOP
+                    // client_receiver_addr.sin_family = AF_INET;
+                    // client_receiver_addr.sin_port = htons(client_port_no);
+                    // client_receiver_addr.sin_addr.s_addr = htonl(INADDR_ANY); //INADDR_ANY, INADDR_LOOP
+
+                    struct sockaddr_in client_receiver_addr;	//structure to save IP address and port
+                    memset(&client_receiver_addr,0,sizeof(client_receiver_addr)); //Initialize/fill the server_address to 0
+                    client_receiver_addr.sin_family = AF_INET;	//address family
+                    client_receiver_addr.sin_port = htons(client_port_no);	//port
+                    client_receiver_addr.sin_addr.s_addr = inet_addr("127.0.0.1"); //htonl(INADDR_LOOPBACK); //inet_addr("127.0.0.1");
+
+                    setsockopt(client_receiver_sd,SOL_SOCKET,SO_REUSEADDR,&(int){1},sizeof(int)); //&(int){1},sizeof(int)
 
                     //bind
                     if(bind(client_receiver_sd, (struct sockaddr*)&client_receiver_addr,sizeof(client_receiver_addr))<0)
@@ -462,9 +471,12 @@ int main(int argc, char *argv[])
                     }
 
                     //b.server connects to that port using port 20; client accepts connection
-                    unsigned int server_data_len = sizeof(server_data_addr);
-                    int server_data_sd = accept(client_receiver_sd,(struct sockaddr *) &server_data_addr,&server_data_len);
-
+                    
+                    int server_data_sd = accept(client_receiver_sd,NULL,NULL);
+                    if(server_data_sd <1){
+                        perror("Client Data Accept Error.");
+                         exit(-1);
+                    }
 
                     //c.server sends data to client
 
@@ -474,9 +486,10 @@ int main(int argc, char *argv[])
                     printf("%s\n",server_message);
                     fflush(stdout);
                     
-            //4.close connection
-            close(client_receiver_sd);
-            client_port_no++;
+                    //4.close connection
+                     close(client_receiver_sd);
+                }
+            
         }
 
 

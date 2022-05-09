@@ -10,14 +10,14 @@
 #include <time.h>
 
 #define MAX_SOCKET_NUM 10
-#define MAX_USERS 10
+#define MAX_USER 10
 
-typedef struct User{
+struct User{
 	char *username;
 	char *password;
 	int sock_num;
 	int login_status;
-} User;
+};
 
 
 int main()
@@ -36,7 +36,7 @@ int main()
     // reading line by line, max 256 bytes
     char buffer[256];
 	
-	User* all_users = malloc(MAX_USERS * sizeof(*all_users));
+	struct User* all_users = malloc(MAX_USER * sizeof(*all_users));
 	int counter = 0;
 
     while (fgets(buffer, 256, fp)){
