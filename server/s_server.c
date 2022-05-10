@@ -28,17 +28,17 @@ struct arg_struct {
 
 int client_data_port = 0;
 char client_data_ip[256];
-//a function to close client connections that connect to server -> parameter: client descriptor, user array and current set of file descriptors
-void close_client_connection(int client_sd, struct Users user_array[], int *socket_list){
+//a function to close client connections that connect to server -> parameter: client descriptor, user array and current set of file descriptors , int *socket_list
+void close_client_connection(int client_sd, struct Users user_array[]){
 
     
-	for (int i = 0; i < MAX_SOCKET_NUM; i++)
-	{
-		if (socket_list[i] == client_sd)
-		{
-			socket_list[i] = 0;
-		}
-	}
+	// for (int i = 0; i < MAX_SOCKET_NUM; i++)
+	// {
+	// 	if (socket_list[i] == client_sd)
+	// 	{
+	// 		socket_list[i] = 0;
+	// 	}
+	// }
     close(client_sd);
 	for (int i = 0; i < MAX_USER; i++)
 	{
@@ -53,8 +53,8 @@ void close_client_connection(int client_sd, struct Users user_array[], int *sock
 }
  
 
-//a function to handle client connections that connect to server -> parameter: client descriptor and user array
-void handle_connection(int client_sd, struct Users user_array[MAX_USER], int *socket_list){
+//a function to handle client connections that connect to server -> parameter: client descriptor and user array , int *socket_list
+void handle_connection(int client_sd, struct Users user_array[MAX_USER]){
 
     // struct arg_struct *args = arguments;
     // // int client_sd = *(int*)client_sd_pointer;
@@ -163,7 +163,7 @@ void handle_connection(int client_sd, struct Users user_array[MAX_USER], int *so
                     {
                         strcpy(server_response,"221 Service closing control connection.");
                         send(client_sd,server_response,strlen(server_response),0);
-                        close_client_connection(client_sd,user_array, socket_list);
+                        close_client_connection(client_sd,user_array); //, socket_list
                     }
                     else{
                         strcpy(server_response,"530 Not logged in.");
@@ -470,7 +470,7 @@ void handle_connection(int client_sd, struct Users user_array[MAX_USER], int *so
             {
                 strcpy(server_response,"221 Service closing control connection.");
                 send(client_sd,server_response,strlen(server_response),0);
-                close_client_connection(client_sd,user_array, socket_list);
+                close_client_connection(client_sd,user_array); //, socket_list
             }
             else{
                 strcpy(server_response,"202 Command not implemented.");
@@ -684,75 +684,77 @@ int main()
 	while(1)
 	{
         
-		FD_ZERO(&socks); //FD_ZERO() clears out the fd_set called socks, so that it doesn't contain any file descriptors.
-		FD_SET(server_fd, &socks); //FD_SET() adds the file descriptor "server_fd" to the fd_set, so that select() will return if a connection comes in on that socket (which means you have to do accept(), etc.
+	// 	FD_ZERO(&socks); //FD_ZERO() clears out the fd_set called socks, so that it doesn't contain any file descriptors.
+	// 	FD_SET(server_fd, &socks); //FD_SET() adds the file descriptor "server_fd" to the fd_set, so that select() will return if a connection comes in on that socket (which means you have to do accept(), etc.
 
-		int max_fd = server_fd; // set the initial max bit
+	// 	int max_fd = server_fd; // set the initial max bit
 
-		for (int i=0; i<MAX_SOCKET_NUM; i++){	
-			if(socket_list[i]>0){ 
-				FD_SET(socket_list[i], &socks); // add a new socket to the set
-			}
-			if(socket_list[i] > max_fd){ // update max socket bit in the set
-				max_fd = socket_list[i];
-			}
-		}
+	// 	for (int i=0; i<MAX_SOCKET_NUM; i++){	
+	// 		if(socket_list[i]>0){ 
+	// 			FD_SET(socket_list[i], &socks); // add a new socket to the set
+	// 		}
+	// 		if(socket_list[i] > max_fd){ // update max socket bit in the set
+	// 			max_fd = socket_list[i];
+	// 		}
+	// 	}
 		
 
-		if (select(max_fd + 1, &socks, NULL, NULL, NULL) < 0) // select function will block until something happens on one of the sockets in the set
-		{
-			perror("Select failed.\n");
-			return -1;
-		}
+	// 	if (select(max_fd + 1, &socks, NULL, NULL, NULL) < 0) // select function will block until something happens on one of the sockets in the set
+	// 	{
+	// 		perror("Select failed.\n");
+	// 		return -1;
+	// 	}
 
-		// loop through the set to check each socket
-		for (int i=0; i<=max_fd; i++){
-			if(FD_ISSET(i, &socks))
-            {
-				if(i == server_fd)
-                { // if it's the server socket chosen, it means that there's a new connection coming
-					int client_sd = accept(server_fd,NULL,NULL);
-					if(client_sd<1)
-					{
-						perror("Accept Error:");
-						return -1;
-					}
-                    // printf("Client Entered: %d\n",client_sd);
-					FD_SET(client_sd, &socks);
-					if(client_sd> max_fd){ // update max socket bit in the set
-						// max_fd = socket_list[i];
-                        max_fd = client_sd;
-                        // printf("Hello\n");
-					}
+	// 	// loop through the set to check each socket
+	// 	for (int i=0; i<=max_fd; i++){
+	// 		if(FD_ISSET(i, &socks))
+    //         {
+	// 			if(i == server_fd)
+    //             { // if it's the server socket chosen, it means that there's a new connection coming
+	// 				int client_sd = accept(server_fd,NULL,NULL);
+	// 				if(client_sd<1)
+	// 				{
+	// 					perror("Accept Error:");
+	// 					return -1;
+	// 				}
+    //                 // printf("Client Entered: %d\n",client_sd);
+	// 				FD_SET(client_sd, &socks);
+	// 				if(client_sd> max_fd){ // update max socket bit in the set
+	// 					// max_fd = socket_list[i];
+    //                     max_fd = client_sd;
+    //                     // printf("Hello\n");
+	// 				}
 
-                    // for(int i = 0; i<MAX_SOCKET_NUM; i++){
-                    //     printf("Socket Num: %d is %d\n",i,socket_list[i]);
-                    // }
-					// find the first 0 and set it to client_sd
-					for(int i=0; i<MAX_SOCKET_NUM; i++)
-                    {
-						if(socket_list[i]==0)
-                        {
+    //                 // for(int i = 0; i<MAX_SOCKET_NUM; i++){
+    //                 //     printf("Socket Num: %d is %d\n",i,socket_list[i]);
+    //                 // }
+	// 				// find the first 0 and set it to client_sd
+	// 				for(int i=0; i<MAX_SOCKET_NUM; i++)
+    //                 {
+	// 					if(socket_list[i]==0)
+    //                     {
                             
-							socket_list[i] = client_sd;
-                            printf("\nSocket Num: %d is %d\n",i,socket_list[i]);
-						    printf("New Connection established!\n");
-						    break;
-                        }
-                        else{
-                            printf("noope.\n");
-                        }
-					}
-					break;
-				}
-				else
-                { // if it's not server, start serving files
-					handle_connection(i,users,socket_list);
-                    FD_CLR(i, &socks);
-				}
-			}
-		}
-	}	
+	// 						socket_list[i] = client_sd;
+    //                         printf("\nSocket Num: %d is %d\n",i,socket_list[i]);
+	// 					    printf("New Connection established!\n");
+	// 					    break;
+    //                     }
+    //                     else{
+    //                         printf("noope.\n");
+    //                     }
+	// 				}
+	// 				break;
+	// 			}
+	// 			else
+    //             { // if it's not server, start serving files
+                    
+    //                 handle_connection(i,users,socket_list);
+    //                 FD_CLR(i, &socks);
+                    
+	// 			}
+	// 		}
+	// 	}
+	// }	
 
         // int client_sd = accept(server_fd,NULL,NULL);
             
@@ -778,17 +780,20 @@ int main()
             
         // }
 
-        // int client_sd = accept(server_fd,NULL,NULL);
+        int client_sd = accept(server_fd,NULL,NULL);
 		
-		// int pid = fork(); //fork a child process
-        // if (pid == 0){
-        //     // struct arg_struct args;
-        //     // args.arg1 = client_sd;
-        //     // args.arg2 = users;
-        //     handle_connection(client_sd, users);
-        // }
+		int pid = fork(); //fork a child process
+        if (pid == 0){
+            // struct arg_struct args;
+            // args.arg1 = client_sd;
+            // args.arg2 = users;
+            while(1)
+	        {
+                handle_connection(client_sd, users);
+            }
+        }
     
-
+    }
 	close(server_fd);	
     //free the memory
 	for(int i=0; i<counter; i++){
