@@ -90,7 +90,7 @@ int main(int argc, char *argv[])
 
     while(1){
         bzero(command,sizeof(command));
-
+        bzero(&response,sizeof(response));
         printf("\nftp> ");
         fgets(command, sizeof(command), stdin); 
         command[strcspn(command, "\n")] = 0; //removing trailing \n in string
@@ -101,6 +101,7 @@ int main(int argc, char *argv[])
                 perror("Error in send.");
                 exit(-1);
             };
+            bzero(&response,sizeof(response));
             recv(server_fd, response, sizeof(response), 0);
             printf("%s\n", response);
             close(server_fd);
@@ -115,7 +116,7 @@ int main(int argc, char *argv[])
                 perror("Error in send.");
                 exit(-1);
             }
-            
+            bzero(&response,sizeof(response));
             recv(server_fd, response, sizeof(response), 0);
             printf("%s\n", response);
             fflush(stdout);
@@ -124,6 +125,7 @@ int main(int argc, char *argv[])
 
         //PASS command
         else if(strncmp(command, "PASS",4) == 0 ||  strncmp(command, "pass",4) == 0){
+            bzero(&response,sizeof(response));
             send(server_fd, command, strlen(command), 0);
             recv(server_fd, response, sizeof(response), 0);
             printf("%s\n", response);
@@ -171,9 +173,12 @@ int main(int argc, char *argv[])
                 strcat(port_command,",");
                 strcat(port_command,p_2);
                 bzero(&response,sizeof(response));
-                send(server_fd, port_command, strlen("PORT"), 0);
+                send(server_fd, port_command, strlen(port_command), 0);
                 recv(server_fd, response, sizeof(response), 0);
-                printf("%s\n", response);
+                if(strcmp(response,"200 PORT command successful.") == 0)
+                {
+                    printf("%s\n", response);
+                }
 
                 //3.sending STOR command: Server responds with: 150 File status okay; about to open. data connection. or 530: Not Logged in.
                 bzero(&response,sizeof(response));
@@ -281,120 +286,137 @@ int main(int argc, char *argv[])
                 strcat(port_command,",");
                 strcat(port_command,p_2);
                 bzero(&response,sizeof(response));
-                send(server_fd, port_command, strlen("PORT"), 0);
+                send(server_fd, port_command, strlen(port_command), 0);
                 recv(server_fd, response, sizeof(response), 0);
-                printf("%s\n", response);
+                if(strcmp(response,"200 PORT command successful.") == 0)
+                {
+                    printf("%s\n", response);
+                }
 
             //2.sending STOR command: Server responds with: 150 File status okay; about to open. data connection or 550 No such file or directory or 530: Not Logged in.
+                
                 char new_command[256];
                 strcpy(new_command,command);
                 char delim[] = " ";
                 char *ptr = strtok(command,delim);
                 ptr = strtok(NULL,delim);
 
-                char filename[256];
-                strcpy(filename,ptr);
-
-                bzero(&response,sizeof(response));
-                send(server_fd, new_command, strlen(new_command), 0);
-                recv(server_fd, response, sizeof(response), 0);
-                printf("%s\n", response);
-
-                if(strcmp(response,"150 File status okay; about to open. data connection.") == 0)
+                if(ptr != NULL)
                 {
-                    //4.create a data connection by:
-                
-   
-                    //a.opening and listening to a port >1024 in the client
+                    char filename[256];
+                    strcpy(filename,ptr);
+
+                    bzero(&response,sizeof(response));
+                    send(server_fd, new_command, strlen(new_command), 0);
+                    recv(server_fd, response, sizeof(response), 0);
+                    printf("%s\n", response);
+
+                    if(strcmp(response,"150 File status okay; about to open. data connection.") == 0)
+                    {
+                        //4.create a data connection by:
                     
-                    int client_receiver_sd = socket(AF_INET,SOCK_STREAM,0);
-                    if(client_receiver_sd<0)
-                    {
-                        perror("Client Receiver Socket creation:");
-                        exit(-1);
-                    }
-                    //setsock
-                    int value  = 1;
-                    setsockopt(client_receiver_sd,SOL_SOCKET,SO_REUSEADDR,&value,sizeof(value)); //&(int){1},sizeof(int)
-                    struct sockaddr_in client_receiver_addr, server_data_addr;
+    
+                        //a.opening and listening to a port >1024 in the client
+                        
+                        int client_receiver_sd = socket(AF_INET,SOCK_STREAM,0);
+                        if(client_receiver_sd<0)
+                        {
+                            perror("Client Receiver Socket creation:");
+                            exit(-1);
+                        }
+                        //setsock
+                        int value  = 1;
+                        setsockopt(client_receiver_sd,SOL_SOCKET,SO_REUSEADDR,&value,sizeof(value)); //&(int){1},sizeof(int)
+                        struct sockaddr_in client_receiver_addr, server_data_addr;
 
-                    bzero(&client_receiver_addr,sizeof(client_receiver_addr));
+                        bzero(&client_receiver_addr,sizeof(client_receiver_addr));
 
-                    client_receiver_addr.sin_family = AF_INET;
-                    client_receiver_addr.sin_port = htons(client_port_no);
-                    client_receiver_addr.sin_addr.s_addr = htonl(INADDR_ANY); //INADDR_ANY, INADDR_LOOP
+                        client_receiver_addr.sin_family = AF_INET;
+                        client_receiver_addr.sin_port = htons(client_port_no);
+                        client_receiver_addr.sin_addr.s_addr = htonl(INADDR_ANY); //INADDR_ANY, INADDR_LOOP
 
-                    //bind
-                    if(bind(client_receiver_sd, (struct sockaddr*)&client_receiver_addr,sizeof(client_receiver_addr))<0)
-                    {
-                        perror("Client Receiver Socket: bind failed");
-                        exit(-1);
-                    }
-                    //listen
-                    if(listen(client_receiver_sd,5)<0)
-                    {
-                        perror("Client Receiver Socket: listen failed");
+                        //bind
+                        if(bind(client_receiver_sd, (struct sockaddr*)&client_receiver_addr,sizeof(client_receiver_addr))<0)
+                        {
+                            perror("Client Receiver Socket: bind failed");
+                            exit(-1);
+                        }
+                        //listen
+                        if(listen(client_receiver_sd,5)<0)
+                        {
+                            perror("Client Receiver Socket: listen failed");
+                            close(client_receiver_sd);
+                            exit(-1);
+                        }
+
+                        //b.server connects to that port using port 20; client accepts connection
+                        unsigned int server_data_len = sizeof(server_data_addr);
+                        int server_data_sd = accept(client_receiver_sd,(struct sockaddr *) &server_data_addr,&server_data_len);
+
+                        //5.after connection is established, send file data from server to client
+                        char delim[] = " ";
+                        char *file_name = strtok(command, delim);
+                        file_name = strtok(NULL, delim);
+
+                    
+                        char client_file[50];
+
+                        // add "Client-" to the file in case FTPserver and FTPclient are in same directory 
+                        strcpy(client_file, "Client-");
+                        strcat(client_file, file_name);
+
+                        FILE *file;
+                        // Create the file for writing 
+                        if (!(file = fopen(client_file, "w")))
+                        {
+                            perror("Sorry, this file can't be created.");
+                            return 0;
+                        }
+                        else
+                        {
+                            char server_data[256];
+
+                            int server_return_value = 0;
+                            // start receiving data from the server
+                            memset(server_data, 0, sizeof(server_data));
+                            while ((server_return_value = recv(server_data_sd, server_data, sizeof(server_data), 0)) > 0)
+                            {
+                                // write received data into the file 
+                                fputs(server_data, file);
+                                memset(server_data, 0, sizeof(server_data));
+                            }
+
+                            fclose(file);
+                        }
+
+                        fflush(stdout);
+
+                        char server_message[256]; //to receive server's message 
+                        bzero(server_message,sizeof(server_message));
+                        recv(server_data_sd,server_message,sizeof(server_message),0); // receive message from server: 226 Transfer completed.
+                        printf("%s\n",server_message);
+
+                        
+                        //6.close connection
                         close(client_receiver_sd);
-                        exit(-1);
-                    }
-
-                    //b.server connects to that port using port 20; client accepts connection
-                    unsigned int server_data_len = sizeof(server_data_addr);
-                    int server_data_sd = accept(client_receiver_sd,(struct sockaddr *) &server_data_addr,&server_data_len);
-
-                    //5.after connection is established, send file data from server to client
-                    char delim[] = " ";
-                    char *file_name = strtok(command, delim);
-                    file_name = strtok(NULL, delim);
-
-                
-                    char client_file[50];
-
-                    // add "Client-" to the file in case FTPserver and FTPclient are in same directory 
-                    strcpy(client_file, "Client-");
-                    strcat(client_file, file_name);
-
-                    FILE *file;
-                    // Create the file for writing 
-                    if (!(file = fopen(client_file, "w")))
-                    {
-                        perror("Sorry, this file can't be created.");
-                        return 0;
+                    
+                        
                     }
                     else
                     {
-                        char server_data[256];
-
-                        int server_return_value = 0;
-                        // start receiving data from the server
-                        memset(server_data, 0, sizeof(server_data));
-                        while ((server_return_value = recv(server_data_sd, server_data, sizeof(server_data), 0)) > 0)
-                        {
-                            // write received data into the file 
-                            fputs(server_data, file);
-                            memset(server_data, 0, sizeof(server_data));
-                        }
-
-                        fclose(file);
+                        continue;
                     }
-
                     fflush(stdout);
-
-                    char server_message[256]; //to receive server's message 
-                    bzero(server_message,sizeof(server_message));
-                    recv(server_data_sd,server_message,sizeof(server_message),0); // receive message from server: 226 Transfer completed.
-                    printf("%s\n",server_message);
-
-                    
-                    //6.close connection
-                    close(client_receiver_sd);
-                    
                 }
                 else
                 {
-                   continue;
+                    bzero(&response,sizeof(response));
+                    send(server_fd, new_command, strlen(new_command), 0);
+                    recv(server_fd, response, sizeof(response), 0);
+                    printf("%s\n", response);
                 }
                 fflush(stdout);
+               
             
             
         }
@@ -405,6 +427,7 @@ int main(int argc, char *argv[])
             
             //1.sending client port over to server using PORT command: Server responds with: 200 PORT command successful.
                 client_port_no += 1;
+                printf("client port: %d\n",client_port_no);
                 int p1,p2;
                 p1 = client_port_no/256;
                 p2 = client_port_no%256;
@@ -419,7 +442,10 @@ int main(int argc, char *argv[])
                 bzero(&response,sizeof(response));
                 send(server_fd, port_command, strlen(port_command), 0);
                 recv(server_fd, response, sizeof(response), 0);
-                printf("%s\n", response);
+                if(strcmp(response,"200 PORT command successful.") == 0)
+                {
+                    printf("%s\n", response);
+                }
 
             //2.sending LIST command: Server responds with: 150 File status okay; about to open. data connection.
                 
@@ -430,64 +456,74 @@ int main(int argc, char *argv[])
 
             //3.creating data connection
                 //a.opening and listening to a port >1024 in the client
-                if(strcmp(response,"150 File status okay; about to open. data connection.") == 0){
-                    int client_receiver_sd = socket(AF_INET,SOCK_STREAM,0);
-                    if(client_receiver_sd<0)
-                    {
-                        perror("Client Receiver Socket creation:");
-                        exit(-1);
-                    }
-                    //setsock
-                    // int value  = 1;
-                    // setsockopt(client_receiver_sd,SOL_SOCKET,SO_REUSEADDR,&value,sizeof(value)); //&(int){1},sizeof(int)
-                    // struct sockaddr_in client_receiver_addr;
+                // printf("response: %s %lu\n",response, strlen(response));
+                // printf("150 File status okay; about to open data connection.: %lu\n", strlen("150 File status okay; about to open data connection."));
+                if(strcmp(response,"150 File status okay; about to open data connection.") == 0)
+                {
+                    // printf("If is working\n");
+                    // int pid = fork();
+                    // if(pid == 0)
+                    // {
 
-                    // bzero(&client_receiver_addr,sizeof(client_receiver_addr));
+                        int client_receiver_sd = socket(AF_INET,SOCK_STREAM,0);
+                        if(client_receiver_sd<0)
+                        {
+                            perror("Client Receiver Socket creation:");
+                            exit(-1);
+                        }
+                        //setsock
+                        // int value  = 1;
+                        // setsockopt(client_receiver_sd,SOL_SOCKET,SO_REUSEADDR,&value,sizeof(value)); //&(int){1},sizeof(int)
+                        // struct sockaddr_in client_receiver_addr;
 
-                    // client_receiver_addr.sin_family = AF_INET;
-                    // client_receiver_addr.sin_port = htons(client_port_no);
-                    // client_receiver_addr.sin_addr.s_addr = htonl(INADDR_ANY); //INADDR_ANY, INADDR_LOOP
+                        // bzero(&client_receiver_addr,sizeof(client_receiver_addr));
 
-                    struct sockaddr_in client_receiver_addr;	//structure to save IP address and port
-                    memset(&client_receiver_addr,0,sizeof(client_receiver_addr)); //Initialize/fill the server_address to 0
-                    client_receiver_addr.sin_family = AF_INET;	//address family
-                    client_receiver_addr.sin_port = htons(client_port_no);	//port
-                    client_receiver_addr.sin_addr.s_addr = inet_addr("127.0.0.1"); //htonl(INADDR_LOOPBACK); //inet_addr("127.0.0.1");
+                        // client_receiver_addr.sin_family = AF_INET;
+                        // client_receiver_addr.sin_port = htons(client_port_no);
+                        // client_receiver_addr.sin_addr.s_addr = htonl(INADDR_ANY); //INADDR_ANY, INADDR_LOOP
 
-                    setsockopt(client_receiver_sd,SOL_SOCKET,SO_REUSEADDR,&(int){1},sizeof(int)); //&(int){1},sizeof(int)
+                        struct sockaddr_in client_receiver_addr;	//structure to save IP address and port
+                        memset(&client_receiver_addr,0,sizeof(client_receiver_addr)); //Initialize/fill the server_address to 0
+                        client_receiver_addr.sin_family = AF_INET;	//address family
+                        client_receiver_addr.sin_port = htons(client_port_no);	//port
+                        client_receiver_addr.sin_addr.s_addr = inet_addr("127.0.0.1"); //htonl(INADDR_LOOPBACK); //inet_addr("127.0.0.1");
 
-                    //bind
-                    if(bind(client_receiver_sd, (struct sockaddr*)&client_receiver_addr,sizeof(client_receiver_addr))<0)
-                    {
-                        perror("Client Receiver Socket: bind failed");
-                        exit(-1);
-                    }
-                    //listen
-                    if(listen(client_receiver_sd,5)<0)
-                    {
-                        perror("Client Receiver Socket: listen failed");
+                        setsockopt(client_receiver_sd,SOL_SOCKET,SO_REUSEADDR,&(int){1},sizeof(int)); //&(int){1},sizeof(int)
+
+                        //bind
+                        if(bind(client_receiver_sd, (struct sockaddr*)&client_receiver_addr,sizeof(client_receiver_addr))<0)
+                        {
+                            perror("Client Receiver Socket: bind failed");
+                            exit(-1);
+                        }
+                        //listen
+                        printf("Client Port Listening: %d\n",htons(client_port_no));
+                        if(listen(client_receiver_sd,5)<0)
+                        {
+                            perror("Client Receiver Socket: listen failed");
+                            close(client_receiver_sd);
+                            exit(-1);
+                        }
+
+                        //b.server connects to that port using port 20; client accepts connection
+                        printf("Client Port Accepting: %d\n",client_receiver_addr.sin_port);
+                        int server_data_sd = accept(client_receiver_sd,NULL,NULL);
+                        if(server_data_sd <1){
+                            perror("Client Data Accept Error.");
+                            exit(-1);
+                        }
+
+                        //c.server sends data to client
+                        // printf("Client Port After Accepting: %d\n",htons(client_port_no));
+                        char server_message[256]; //to receive server's message 
+                        bzero(server_message,sizeof(server_message));
+                        recv(server_data_sd,server_message,sizeof(server_message),0); // receive message from server: <list of files> 226 Transfer completed.
+                        printf("%s\n",server_message);
+                        fflush(stdout);
+                        
+                        //4.close connection
                         close(client_receiver_sd);
-                        exit(-1);
-                    }
-
-                    //b.server connects to that port using port 20; client accepts connection
-                    
-                    int server_data_sd = accept(client_receiver_sd,NULL,NULL);
-                    if(server_data_sd <1){
-                        perror("Client Data Accept Error.");
-                         exit(-1);
-                    }
-
-                    //c.server sends data to client
-
-                    char server_message[256]; //to receive server's message 
-                    bzero(server_message,sizeof(server_message));
-                    recv(server_data_sd,server_message,sizeof(server_message),0); // receive message from server: <list of files> 226 Transfer completed.
-                    printf("%s\n",server_message);
-                    fflush(stdout);
-                    
-                    //4.close connection
-                     close(client_receiver_sd);
+                    // }
                 }
             
         }
@@ -551,6 +587,7 @@ int main(int argc, char *argv[])
         else{
             char invalid[256];
             strcpy(invalid, "INVALID");
+            bzero(&response,sizeof(response));
             send(server_fd, invalid, strlen(invalid), 0);
             recv(server_fd, response, sizeof(response), 0);
             printf("%s\n", response);
