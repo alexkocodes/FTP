@@ -8,6 +8,7 @@
 #include<string.h>
 #include<pthread.h>
 #include <time.h>
+#include <sys/mman.h>
 
 #define MAX_SOCKET_NUM 10
 #define MAX_USER 2
@@ -26,8 +27,76 @@ struct arg_struct {
     struct Users *arg2;
 };
 
+
 int client_data_port = 0;
+
 char client_data_ip[256];
+
+void *handle_list(void *arg){
+
+    char server_response[256];
+
+    int client_sd = *(int*)(arg);
+    strcpy(server_response,"150 File status okay; about to open data connection.");   
+    send(client_sd,server_response,strlen(server_response),0);
+
+    int data_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (data_fd < 0)
+    {
+        perror("Error opening Socket: Server Data.");
+        return NULL;
+    }
+
+    sleep(4);
+    //building socket's Internet Address
+    struct sockaddr_in client_data_addr,server_data_addr;
+
+    bzero(&client_data_addr,sizeof(client_data_addr));
+    client_data_addr.sin_family = AF_INET;
+    client_data_addr.sin_port = htons(client_data_port);
+    client_data_addr.sin_addr.s_addr = inet_addr(client_data_ip);
+    // inet_pton(AF_INET, client_data_ip, &(client_data_addr.sin_addr));
+
+    bzero(&server_data_addr,sizeof(server_data_addr));
+    server_data_addr.sin_family = AF_INET;	//address family
+    server_data_addr.sin_port = htons(9000);	//using port 9000 because port 20 is priveledged
+    server_data_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+
+    char server_data_ip[INET_ADDRSTRLEN]; 
+    inet_ntop(AF_INET, &(client_data_addr.sin_addr), server_data_ip, INET_ADDRSTRLEN);
+    printf("Server is connecting to IP: %s and Port: %d\n",client_data_ip,htons(client_data_port));
+    //connecting to server socket
+
+    if (bind(data_fd, (struct sockaddr*) &server_data_addr, sizeof(struct sockaddr_in)) == 0)
+        printf("Server Data binded Correctly\n");
+    else
+        printf("Server Data unable to bind\n");
+
+    if(connect(data_fd,(struct sockaddr*)&client_data_addr,sizeof(client_data_addr))<0)
+    {
+        perror("Connection Failed: Server Data.");
+        exit(-1);
+    }
+
+    bzero(&server_response,sizeof(server_response));
+    char file_line[128];
+    FILE *list_file = popen("ls", "r");
+    if (list_file)
+    {
+        while (fgets(file_line, sizeof(file_line), list_file))
+        {
+            strcat(server_response, file_line);
+        }
+        pclose(list_file);
+    }
+    strcat(server_response,"226 Transfer completed.");
+    send(data_fd,server_response,strlen(server_response),0);
+
+    //munmap(&client_data_port, sizeof(client_data_port));
+    close(data_fd);
+
+    return NULL;
+}
 //a function to close client connections that connect to server -> parameter: client descriptor, user array and current set of file descriptors , int *socket_list
 void close_client_connection(int client_sd, struct Users user_array[]){
 
@@ -55,6 +124,9 @@ void close_client_connection(int client_sd, struct Users user_array[]){
 
 //a function to handle client connections that connect to server -> parameter: client descriptor and user array , int *socket_list
 void handle_connection(int client_sd, struct Users user_array[MAX_USER]){
+
+    int *check = mmap(NULL, sizeof(client_data_port), PROT_READ | PROT_WRITE, 
+                    MAP_SHARED | MAP_ANONYMOUS, 0, 0);
 
     // struct arg_struct *args = arguments;
     // // int client_sd = *(int*)client_sd_pointer;
@@ -205,6 +277,7 @@ void handle_connection(int client_sd, struct Users user_array[MAX_USER]){
             }
             else if(strncmp(client_command, "PORT",3) == 0 ||  strncmp(client_command, "port",3) == 0)
             {
+
                 cptr = strtok(NULL,delim);
                 char data_socket[256];
                 strcpy(data_socket,cptr);
@@ -230,7 +303,9 @@ void handle_connection(int client_sd, struct Users user_array[MAX_USER]){
                 dptr = strtok(NULL,delim_2);
                 p2 = atoi(dptr);
 
+                
                 client_data_port = (p1*256)+p2;
+
                 printf("Client IP: %s and Port: %d\n",client_data_ip,client_data_port);
 
                 strcpy(server_response,"200 PORT command successful.");
@@ -405,65 +480,9 @@ void handle_connection(int client_sd, struct Users user_array[MAX_USER]){
             }
             else if(strncmp(client_command, "LIST",4) == 0 ||  strncmp(client_command, "list",4) == 0)
             {
-                int pid = fork();
-                if (pid == 0)
-                {
-                    strcpy(server_response,"150 File status okay; about to open data connection.");   
-                    send(client_sd,server_response,strlen(server_response),0);
-
-
-                    int data_fd = socket(AF_INET, SOCK_STREAM, 0);
-                    if (data_fd < 0)
-                    {
-                        perror("Error opening Socket: Server Data.");
-                        return;
-                    }
-
-                    //building socket's Internet Address
-                    struct sockaddr_in client_data_addr,server_data_addr;
-
-                    bzero(&client_data_addr,sizeof(client_data_addr));
-                    client_data_addr.sin_family = AF_INET;
-                    client_data_addr.sin_port = htons(client_data_port);
-                    client_data_addr.sin_addr.s_addr = inet_addr(client_data_ip);
-                    // inet_pton(AF_INET, client_data_ip, &(client_data_addr.sin_addr));
-
-                    bzero(&server_data_addr,sizeof(server_data_addr));
-                    server_data_addr.sin_family = AF_INET;	//address family
-                    server_data_addr.sin_port = htons(9000);	//using port 9000 because port 20 is priveledged
-                    server_data_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
-
-                    char server_data_ip[INET_ADDRSTRLEN]; 
-                    inet_ntop(AF_INET, &(client_data_addr.sin_addr), server_data_ip, INET_ADDRSTRLEN);
-                    printf("Server is connecting to IP: %s and Port: %d\n",client_data_ip,htons(client_data_port));
-                    //connecting to server socket
-
-                    if (bind(data_fd, (struct sockaddr*) &server_data_addr, sizeof(struct sockaddr_in)) == 0)
-                        printf("Server Data binded Correctly\n");
-                    else
-                        printf("Server Data unable to bind\n");
-
-                    if(connect(data_fd,(struct sockaddr*)&client_data_addr,sizeof(client_data_addr))<0)
-                    {
-                        perror("Connection Failed: Server Data.");
-                        exit(-1);
-                    }
-
-                    bzero(&server_response,sizeof(server_response));
-                    char file_line[128];
-                    FILE *list_file = popen("ls", "r");
-                    if (list_file)
-                    {
-                        while (fgets(file_line, sizeof(file_line), list_file))
-                        {
-                            strcat(server_response, file_line);
-                        }
-                        pclose(list_file);
-                    }
-                    strcat(server_response,"226 Transfer completed.");
-                    send(data_fd,server_response,strlen(server_response),0);
-                    close(data_fd);
-                }
+                pthread_t t;
+                pthread_create(&t, NULL, handle_list, &client_sd);
+                pthread_join(t, NULL);
             }
             
             else if((strcmp(client_command, "QUIT") == 0 ||  strcmp(client_command, "quit") == 0))
@@ -487,8 +506,6 @@ void handle_connection(int client_sd, struct Users user_array[MAX_USER]){
     return;
 }
 // void handle_connection(void *arguments);
-
-
 
 
 
