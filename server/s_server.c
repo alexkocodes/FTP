@@ -47,7 +47,7 @@ void *handle_list(void *arg){
         return NULL;
     }
 
-    sleep(4);
+    sleep(2);
     //building socket's Internet Address
     struct sockaddr_in client_data_addr,server_data_addr;
 
