@@ -47,7 +47,7 @@ void *handle_list(void *arg){
         return NULL;
     }
 
-    sleep(2);
+    // sleep(2);
     //building socket's Internet Address
     struct sockaddr_in client_data_addr,server_data_addr;
 
@@ -65,16 +65,22 @@ void *handle_list(void *arg){
     char server_data_ip[INET_ADDRSTRLEN]; 
     inet_ntop(AF_INET, &(client_data_addr.sin_addr), server_data_ip, INET_ADDRSTRLEN);
     printf("Server is connecting to IP: %s and Port: %d\n",client_data_ip,htons(client_data_port));
+    printf("Server time %lu \n",time(NULL));
     //connecting to server socket
 
     if (bind(data_fd, (struct sockaddr*) &server_data_addr, sizeof(struct sockaddr_in)) == 0)
         printf("Server Data binded Correctly\n");
     else
+    {
+        // perror("bind\n");
         printf("Server Data unable to bind\n");
+    }
+
 
     if(connect(data_fd,(struct sockaddr*)&client_data_addr,sizeof(client_data_addr))<0)
     {
         perror("Connection Failed: Server Data.");
+        
         exit(-1);
     }
 
@@ -93,7 +99,9 @@ void *handle_list(void *arg){
     send(data_fd,server_response,strlen(server_response),0);
 
     //munmap(&client_data_port, sizeof(client_data_port));
-    close(data_fd);
+    if(close(data_fd)<0){
+        perror("close error\n");
+    };
 
     return NULL;
 }
@@ -140,15 +148,17 @@ void handle_connection(int client_sd, struct Users user_array[MAX_USER]){
     char server_response[256];
     bzero(&server_response, sizeof(server_response));
 
-    for (int i = 0; i < MAX_USER; i++)
-	{	
-		if (user_array[i].sock_num == client_sd && user_array[i].login_status == 2)
-		{
-			authentication_status = 1;
-		}
-	}
     
-
+    
+    while(1)
+    {
+        for (int i = 0; i < MAX_USER; i++)
+        {	
+            if (user_array[i].sock_num == client_sd && user_array[i].login_status == 2)
+            {
+                authentication_status = 1;
+            }
+        }
     if (recv(client_sd, client_request, sizeof(client_request) - 1, 0) > 0)
 	{
         printf("Client req is %s: \n",client_request);
@@ -236,6 +246,7 @@ void handle_connection(int client_sd, struct Users user_array[MAX_USER]){
                         strcpy(server_response,"221 Service closing control connection.");
                         send(client_sd,server_response,strlen(server_response),0);
                         close_client_connection(client_sd,user_array); //, socket_list
+                        return;
                     }
                     else{
                         strcpy(server_response,"530 Not logged in.");
@@ -306,7 +317,7 @@ void handle_connection(int client_sd, struct Users user_array[MAX_USER]){
                 
                 client_data_port = (p1*256)+p2;
 
-                printf("Client IP: %s and Port: %d\n",client_data_ip,client_data_port);
+                printf("Client IP: %s and Port: %d\n",client_data_ip,htons(client_data_port));
 
                 strcpy(server_response,"200 PORT command successful.");
                 send(client_sd,server_response,strlen(server_response),0);
@@ -480,9 +491,13 @@ void handle_connection(int client_sd, struct Users user_array[MAX_USER]){
             }
             else if(strncmp(client_command, "LIST",4) == 0 ||  strncmp(client_command, "list",4) == 0)
             {
-                pthread_t t;
-                pthread_create(&t, NULL, handle_list, &client_sd);
-                pthread_join(t, NULL);
+                // pthread_t t;
+                // pthread_create(&t, NULL, handle_list, &client_sd);
+                int pid = fork();
+                if (pid == 0 ){
+                    handle_list(&client_sd);
+                }
+                // pthread_join(t, NULL);
             }
             
             else if((strcmp(client_command, "QUIT") == 0 ||  strcmp(client_command, "quit") == 0))
@@ -490,13 +505,14 @@ void handle_connection(int client_sd, struct Users user_array[MAX_USER]){
                 strcpy(server_response,"221 Service closing control connection.");
                 send(client_sd,server_response,strlen(server_response),0);
                 close_client_connection(client_sd,user_array); //, socket_list
+                return;
             }
             else{
                 strcpy(server_response,"202 Command not implemented.");
                 send(client_sd,server_response,strlen(server_response),0);
             }
         }
-
+    }
         
         
         
@@ -804,10 +820,10 @@ int main()
             // struct arg_struct args;
             // args.arg1 = client_sd;
             // args.arg2 = users;
-            while(1)
-	        {
+            // while(1)
+	        // {
                 handle_connection(client_sd, users);
-            }
+            // }
         }
     
     }
