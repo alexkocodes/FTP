@@ -394,16 +394,44 @@ void handle_connection(int client_sd, struct Users user_array[MAX_USER]){
                             }
                             printf("Server Filename: %s\n", filename);
                             bzero(&server_response,sizeof(server_response));
-                            char line[256];
-                            while (fgets(line, sizeof(line), fptr) != NULL) 
-                            {
+                            // char line[256];
+                            // while (fgets(line, sizeof(line), fptr) != NULL) 
+                            // {
                                 
-                                if (send(data_fd, line, sizeof(line), 0) == -1) 
+                            //     if (send(data_fd, line, sizeof(line), 0) == -1) 
+                            //     {
+                            //         perror("Error Sending file..\n");
+                            //         return;
+                            //     }
+                            //     memset(line, 0, sizeof(line));
+                            // }
+                            // fclose(fptr);
+
+                           
+                            while(1)
+                            {
+                                /* First read file in chunks of 256 bytes */
+                                unsigned char buff[1024]={0};
+                                int nread = fread(buff,1,1024,fptr);
+                                //printf("Bytes read %d \n", nread);        
+
+                                /* If read was success, send data. */
+                                if(nread > 0)
                                 {
-                                    perror("Error Sending file..\n");
-                                    return;
+                                    //printf("Sending \n");
+                                    write(data_fd, buff, nread);
                                 }
-                                memset(line, 0, sizeof(line));
+                                if (nread < 1024)
+                                {
+                                    if (feof(fptr))
+                                    {
+                                        printf("End of file\n");
+                                        printf("File transfer completed for id: %d\n",data_fd);
+                                    }
+                                    if (ferror(fptr))
+                                        printf("Error reading\n");
+                                    break;
+                                }
                             }
                             fclose(fptr);
 
@@ -411,6 +439,7 @@ void handle_connection(int client_sd, struct Users user_array[MAX_USER]){
                             send(client_sd,server_response,strlen(server_response),0);
                             close(data_fd);
                             return;
+                            // close(data_fd);
                         }
                     }
                     else{
@@ -478,31 +507,58 @@ void handle_connection(int client_sd, struct Users user_array[MAX_USER]){
                     strcpy(server_file, "Server-");
                     strcat(server_file, filename);
                     FILE *fptr;		//create requested file
-                    if (!(fptr = fopen(server_file, "w")))
+                    // if (!(fptr = fopen(server_file, "w")))
+                    // {
+                    //     perror("Sorry, this file can't be created.");
+                    //     return;
+                    // }
+                    int bytesReceived = 0;
+                    char recvBuff[1024];
+                    memset(recvBuff, '0', sizeof(recvBuff));
+                    fptr = fopen(server_file, "w"); 
+                    
+                    if(NULL == fptr)
                     {
-                        perror("Sorry, this file can't be created.");
+                        printf("Error opening file");
                         return;
                     }
                     else
                     {
-                        char server_data[256];
+                        // char server_data[256];
 
-                        int server_return_value = 0;
-                        memset(server_data, 0, sizeof(server_data));
-                        while ((server_return_value = recv(data_fd, server_data, sizeof(server_data), 0)) > 0)
-                        {
-                            printf("This is what we receive: %s\n",server_data);
-                            fseek (fptr, 0, SEEK_CUR);
-                            fputs(server_data, fptr);
-                            memset(server_data, 0, sizeof(server_data));
-                            fflush(fptr);
+                        // int server_return_value = 0;
+                        // memset(server_data, 0, sizeof(server_data));
+                        // while ((server_return_value = recv(data_fd, server_data, sizeof(server_data), 0)) > 0)
+                        // {
+                        //     printf("This is what we receive: %s\n",server_data);
+                        //     fseek (fptr, 0, SEEK_CUR);
+                        //     fputs(server_data, fptr);
+                        //     memset(server_data, 0, sizeof(server_data));
+                        //     fflush(fptr);
+                        // }
+
+                        // fclose(fptr);
+                        // fflush(stdout);   
+                    
+                    
+                        
+                        while((bytesReceived = read(data_fd, recvBuff, 1024)) > 0)
+                        { 
+                            
+                            // recvBuff[n] = 0;
+                            fflush(stdout);
+                            fwrite(recvBuff, 1,bytesReceived,fptr);
+                            // printf("%s \n", recvBuff);
                         }
 
-                        fclose(fptr);
-                        // fflush(stdout);   
+                        if(bytesReceived < 0)
+                        {
+                            printf("\n Read Error \n");
+                        }
+                        printf("\nFile OK....Completed\n");
+                        
                     }
-                    
-                   
+                    fclose(fptr);
                     strcat(server_response,"226 Transfer completed.");
                     send(client_sd,server_response,strlen(server_response),0);
                     close(data_fd);

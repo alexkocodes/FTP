@@ -227,18 +227,45 @@ int main(int argc, char *argv[])
                     //5.after connection is established, send file data from client to server
                     
 
-                    char line[256];
-                    while (fgets(line, sizeof(line), fptr) != NULL) 
-                    {
+                    // char line[256];
+                    // while (fgets(line, sizeof(line), fptr) != NULL) 
+                    // {
                         
-                        if (send(server_data_sd, line, sizeof(line), 0) == -1) 
+                    //     if (send(server_data_sd, line, sizeof(line), 0) == -1) 
+                    //     {
+                    //         perror("Error Sending file..\n");
+                    //         break;
+                    //     }
+                    //     memset(line, 0, sizeof(line));
+                    // }
+                    
+                   
+
+                    while(1)
+                    {
+                        /* First read file in chunks of 256 bytes */
+                        unsigned char buff[1024]={0};
+                        int nread = fread(buff,1,1024,fptr);
+                        //printf("Bytes read %d \n", nread);        
+
+                        /* If read was success, send data. */
+                        if(nread > 0)
                         {
-                            perror("Error Sending file..\n");
+                            //printf("Sending \n");
+                            write(server_data_sd, buff, nread);
+                        }
+                        if (nread < 1024)
+                        {
+                            if (feof(fptr))
+                            {
+                                printf("End of file\n");
+                                printf("File transfer completed for id: %d\n",server_data_sd);
+                            }
+                            if (ferror(fptr))
+                                printf("Error reading\n");
                             break;
                         }
-                        memset(line, 0, sizeof(line));
                     }
-                    
                     fclose(fptr);
                     //6.close connection
                     fflush(stdout);
@@ -381,29 +408,55 @@ int main(int argc, char *argv[])
                         printf("this is the filname %s\n",file_name);
                         FILE *file;
                         // Create the file for writing 
-                        if (!(file = fopen(client_file, "w")))
+                        // if (!(file = fopen(client_file, "w")))
+                        // {
+                        //     perror("Sorry, this file can't be created.");
+                        //     return 0;
+                        // }
+                        // else
+                        // {
+                        //     char server_data[256];
+
+                        //     int server_return_value = 0;
+                        //     // start receiving data from the server
+                        //     memset(server_data, 0, sizeof(server_data));
+                        //     while ((server_return_value = recv(server_data_sd, server_data, sizeof(server_data), 0)) > 0)
+                        //     {
+                        //         // write received data into the file 
+                        //         fputs(server_data, file);
+                        //         memset(server_data, 0, sizeof(server_data));
+                        //     }
+
+                        //     fclose(file);
+                        // }
+
+                        // fflush(stdout);
+                        int bytesReceived = 0;
+                        char recvBuff[1024];
+                        memset(recvBuff, '0', sizeof(recvBuff));
+                        file = fopen(client_file, "w"); 
+                        
+                        if(NULL == file)
                         {
-                            perror("Sorry, this file can't be created.");
-                            return 0;
+                        printf("Error opening file");
+                        return 1;
                         }
-                        else
+                        while((bytesReceived = read(server_data_sd, recvBuff, 1024)) > 0)
+                        { 
+                          
+                            // recvBuff[n] = 0;
+                            fflush(stdout);
+                            fwrite(recvBuff, 1,bytesReceived,file);
+                            // printf("%s \n", recvBuff);
+                        }
+
+                        if(bytesReceived < 0)
                         {
-                            char server_data[256];
-
-                            int server_return_value = 0;
-                            // start receiving data from the server
-                            memset(server_data, 0, sizeof(server_data));
-                            while ((server_return_value = recv(server_data_sd, server_data, sizeof(server_data), 0)) > 0)
-                            {
-                                // write received data into the file 
-                                fputs(server_data, file);
-                                memset(server_data, 0, sizeof(server_data));
-                            }
-
-                            fclose(file);
+                            printf("\n Read Error \n");
                         }
-
-                        fflush(stdout);
+                        printf("\nFile OK....Completed\n");
+                        fclose(file);
+                        
                         //6.close connection
                         close(server_data_sd);
                         close(client_receiver_sd);
