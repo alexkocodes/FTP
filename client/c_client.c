@@ -1,4 +1,5 @@
 //FTP Client
+#include <signal.h>
 #include<stdio.h>
 #include<stdlib.h>
 #include<netinet/in.h>
@@ -115,15 +116,15 @@ int main(int argc, char *argv[])
             printf("%s\n", response);
             close(server_fd);
             // in order to kill all processes for effective quitting
-            if(fork_pid_array != 0){
+            // if(fork_pid_array != 0){
                 
                 for(int i =0; i < fork_counter; i++){
                     int rd = kill(fork_pid_array[fork_counter],SIGINT);
                     
                 }
-            }
+            // }
             
-            return NULL;
+            return 0;
         }
 
 
