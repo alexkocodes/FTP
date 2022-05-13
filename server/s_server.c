@@ -185,66 +185,92 @@ void handle_connection(int client_sd, struct Users user_array[MAX_USER]){
                     if(strncmp(client_command, "USER",4) == 0 || strncmp(client_command, "user",4) == 0)
                     {
                         cptr = strtok(NULL,delim);
-                        char username[256];
-                        strcpy(username,cptr);
-                        int user_existence = 0; // 0 -> Non-existent ; 1 -> Exists
-                        for (int i = 0; i < MAX_USER; i++)
-                        {	
-                            if (strcmp(user_array[i].username, username) == 0)
-                            {
-                                if(user_array[i].login_status == 0 || user_array[i].login_status == 1)
-                                {
-                                    user_array[i].sock_num = client_sd;
-                                    user_array[i].login_status = 1;
-                                    user_existence = 1;
-                                    strcpy(server_response,"331 Username OK, need password.");
-                                    send(client_sd,server_response,strlen(server_response),0);
-                                    bzero(&server_response, sizeof(server_response));
-                                }
-                                else
-                                {
-                                    bzero(&server_response, sizeof(server_response));
-                                    strcpy(server_response,"230 User logged in, proceed.");
-                                    send(client_sd,server_response,strlen(server_response),0);
-                                }
-                               
-                            }
-                        }
-                        if(user_existence == 0){
+                        if(cptr == NULL){
+                            bzero(&server_response, sizeof(server_response));
                             strcpy(server_response,"530 Not logged in.");
-                            printf("Not logged in: %s & %lu",server_response,sizeof(server_response));
                             send(client_sd,server_response,strlen(server_response),0);
+                        }
+                        else
+                        {
+                            char username[256];
+                            strcpy(username,cptr);
+                            int user_existence = 0; // 0 -> Non-existent ; 1 -> Exists
+                            for (int i = 0; i < MAX_USER; i++)
+                            {	
+                                if (strcmp(user_array[i].username, username) == 0)
+                                {
+                                    if(user_array[i].login_status == 0 || user_array[i].login_status == 1)
+                                    {
+                                        user_array[i].sock_num = client_sd;
+                                        user_array[i].login_status = 1;
+                                        for (int i = 0; i < MAX_USER; i++)
+                                        {	
+                                            if (strcmp(user_array[i].username, username) != 0)
+                                            {
+                                                user_array[i].sock_num = 0;
+                                                user_array[i].login_status = 0;
+                                            }
+                                        }
+                                        user_existence = 1;
+                                        strcpy(server_response,"331 Username OK, need password.");
+                                        send(client_sd,server_response,strlen(server_response),0);
+                                        bzero(&server_response, sizeof(server_response));
+                                    }
+                                    else
+                                    {
+                                        bzero(&server_response, sizeof(server_response));
+                                        strcpy(server_response,"230 User logged in, proceed.");
+                                        send(client_sd,server_response,strlen(server_response),0);
+                                    }
+                                
+                                }
+                            }
+                            if(user_existence == 0){
+                                strcpy(server_response,"530 Not logged in.");
+                                printf("Not logged in: %s & %lu",server_response,sizeof(server_response));
+                                send(client_sd,server_response,strlen(server_response),0);
+                            }
                         }
                     }
                     else if(strncmp(client_command, "PASS",4) == 0 ||  strncmp(client_command, "pass",4) == 0)
                     {
                         cptr = strtok(NULL,delim);
-                        char password[256];
-                        strcpy(password,cptr);
-                        int valid_user = 0; // 0 -> Invalid User 1 -> Valid User
-                        for (int i = 0; i < MAX_USER; i++)
-                        {	
-                            if ((user_array[i].login_status == 1 || user_array[i].login_status == 2) && user_array[i].sock_num == client_sd)
-                            {
-                                if(strcmp(user_array[i].password,password) == 0)
-                                {
-                                    user_array[i].login_status = 2;
-                                    strcpy(server_response,"230 User logged in, proceed.");
-                                    send(client_sd,server_response,strlen(server_response),0);
-                                    bzero(&server_response, sizeof(server_response));
-                                    valid_user = 1;
-                                }
-                                // else
-                                // {
-                                //     bzero(&server_response, sizeof(server_response));
-                                //     strcpy(server_response,"530 Not logged in.");
-                                //     send(client_sd,server_response,strlen(server_response),0);
-                                // }
-                                // return;
-                            }
-                        }
-                        if(valid_user == 0)
+                        if(cptr != NULL)
                         {
+                        
+                            char password[256];
+                            strcpy(password,cptr);
+                            int valid_user = 0; // 0 -> Invalid User 1 -> Valid User
+                            for (int i = 0; i < MAX_USER; i++)
+                            {	
+                                if ((user_array[i].login_status == 1 || user_array[i].login_status == 2) && user_array[i].sock_num == client_sd)
+                                {
+                                    if(strcmp(user_array[i].password,password) == 0)
+                                    {
+                                        user_array[i].login_status = 2;
+                                        strcpy(server_response,"230 User logged in, proceed.");
+                                        send(client_sd,server_response,strlen(server_response),0);
+                                        bzero(&server_response, sizeof(server_response));
+                                        valid_user = 1;
+                                    }
+                                    // else
+                                    // {
+                                    //     bzero(&server_response, sizeof(server_response));
+                                    //     strcpy(server_response,"530 Not logged in.");
+                                    //     send(client_sd,server_response,strlen(server_response),0);
+                                    // }
+                                    // return;
+                                }
+                            }
+                            if(valid_user == 0)
+                            {
+                                bzero(&server_response, sizeof(server_response));
+                                strcpy(server_response,"530 Not logged in.");
+                                send(client_sd,server_response,strlen(server_response),0);
+                            }
+                                
+                        }
+                        else{
                             bzero(&server_response, sizeof(server_response));
                             strcpy(server_response,"530 Not logged in.");
                             send(client_sd,server_response,strlen(server_response),0);
@@ -267,20 +293,27 @@ void handle_connection(int client_sd, struct Users user_array[MAX_USER]){
             if(strncmp(client_command, "CWD",3) == 0 ||  strncmp(client_command, "cwd",3) == 0)
             {
                 cptr = strtok(NULL,delim);
-                char foldername[256];
-                strcpy(foldername,cptr);
-                foldername[strcspn(foldername, "\r\n")] = 0; //removing carriage return
-                bzero(&server_response, sizeof(server_response));
-                if (chdir(foldername) == 0){
-                    strcpy(server_response,"200 directory changed to pathname/foldername.\n");
-                    strcat(server_response,foldername);
-                    // send(client_sd,foldername,strlen(foldername),0);
-                    // system("pwd");
-                }
-                else{
+                if(cptr == NULL){
+                    bzero(&server_response, sizeof(server_response));
                     strcpy(server_response,"550 No such file or directory.");
-                    // send(client_sd,server_response,strlen(server_response),0);
-                    // strcat(server_response,foldername);
+                }
+                else
+                {
+                    char foldername[256];
+                    strcpy(foldername,cptr);
+                    foldername[strcspn(foldername, "\r\n")] = 0; //removing carriage return
+                    bzero(&server_response, sizeof(server_response));
+                    if (chdir(foldername) == 0){
+                        strcpy(server_response,"200 directory changed to pathname/foldername.\n");
+                        strcat(server_response,foldername);
+                        // send(client_sd,foldername,strlen(foldername),0);
+                        // system("pwd");
+                    }
+                    else{
+                        strcpy(server_response,"550 No such file or directory.");
+                        // send(client_sd,server_response,strlen(server_response),0);
+                        // strcat(server_response,foldername);
+                    }
                 }
             
                 send(client_sd,server_response,strlen(server_response),0);
@@ -293,7 +326,21 @@ void handle_connection(int client_sd, struct Users user_array[MAX_USER]){
                 strcpy(server_response,"257 pathname.\n");
                 strcat(server_response,wd);
                 send(client_sd,server_response,strlen(server_response),0);
-                system("pwd");
+                
+            }
+            else if(strncmp(client_command, "USER",3) == 0 ||  strncmp(client_command, "user",3) == 0)
+            {
+                
+                bzero(&server_response, sizeof(server_response));
+                strcpy(server_response,"230 User logged in, proceed.");
+                send(client_sd,server_response,strlen(server_response),0);
+                
+            }
+            else if(strncmp(client_command, "PASS",3) == 0 ||  strncmp(client_command, "pass",3) == 0)
+            {
+                bzero(&server_response, sizeof(server_response));
+                strcpy(server_response,"230 User logged in, proceed.");
+                send(client_sd,server_response,strlen(server_response),0);
             }
             else if(strncmp(client_command, "PORT",3) == 0 ||  strncmp(client_command, "port",3) == 0)
             {
@@ -458,112 +505,125 @@ void handle_connection(int client_sd, struct Users user_array[MAX_USER]){
                 int pid = fork();
                 if (pid == 0)
                 {
-                    strcpy(server_response,"150 File status okay; about to open data connection.");   
-                    send(client_sd,server_response,strlen(server_response),0);
-                    int data_fd = socket(AF_INET, SOCK_STREAM, 0);
-                    if (data_fd < 0)
-                    {
-                        perror("Error opening Socket: Server Data.");
-                        return;
-                    }
-
-                    //building socket's Internet Address
-                    struct sockaddr_in client_data_addr,server_data_addr;
-
-                    bzero(&client_data_addr,sizeof(client_data_addr));
-                    client_data_addr.sin_family = AF_INET;
-                    client_data_addr.sin_port = htons(client_data_port);
-                    inet_pton(AF_INET, client_data_ip, &(client_data_addr.sin_addr));
-
-                    bzero(&server_data_addr,sizeof(server_data_addr));
-                    server_data_addr.sin_family = AF_INET;	//address family
-                    server_data_addr.sin_port = htons(9000);	//using port 9000 because port 20 is priveledged
-                    server_data_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
-
-                    char server_data_ip[INET_ADDRSTRLEN]; 
-                    inet_ntop(AF_INET, &(client_data_addr.sin_addr), server_data_ip, INET_ADDRSTRLEN);
-                    printf("Server is connecting to IP: %s and Port: %d\n",client_data_ip,htons(client_data_port));
-                    //connecting to server socket
-                    int value =1;
-                    setsockopt(data_fd,SOL_SOCKET,SO_LINGER,&value,sizeof(value));
-                    if (bind(data_fd, (struct sockaddr*) &server_data_addr, sizeof(struct sockaddr_in)) == 0)
-                        printf("Server Data binded Correctly\n");
-                    else
-                        printf("Server Data unable to bind\n");
-
-                    if(connect(data_fd,(struct sockaddr*)&client_data_addr,sizeof(client_data_addr))<0)
-                    {
-                        perror("Connection Failed: Server Data.");
-                        exit(-1);
-                    }
-
-                    bzero(&server_response,sizeof(server_response));
-                        
                     cptr = strtok(NULL,delim);
-                    char filename[256];
-                    strcpy(filename,cptr);
-
-                    char server_file[256];
-                    strcpy(server_file, "Server-");
-                    strcat(server_file, filename);
-                    FILE *fptr;		//create requested file
-                    // if (!(fptr = fopen(server_file, "w")))
-                    // {
-                    //     perror("Sorry, this file can't be created.");
-                    //     return;
-                    // }
-                    int bytesReceived = 0;
-                    char recvBuff[1024];
-                    memset(recvBuff, '0', sizeof(recvBuff));
-                    fptr = fopen(server_file, "w"); 
-                    
-                    if(NULL == fptr)
+                    if(cptr != NULL)
                     {
-                        printf("Error opening file");
-                        return;
+                        strcpy(server_response,"150 File status okay; about to open data connection.");   
+                        send(client_sd,server_response,strlen(server_response),0);
+                        int data_fd = socket(AF_INET, SOCK_STREAM, 0);
+                        if (data_fd < 0)
+                        {
+                            perror("Error opening Socket: Server Data.");
+                            return;
+                        }
+
+                        //building socket's Internet Address
+                        struct sockaddr_in client_data_addr,server_data_addr;
+
+                        bzero(&client_data_addr,sizeof(client_data_addr));
+                        client_data_addr.sin_family = AF_INET;
+                        client_data_addr.sin_port = htons(client_data_port);
+                        inet_pton(AF_INET, client_data_ip, &(client_data_addr.sin_addr));
+
+                        bzero(&server_data_addr,sizeof(server_data_addr));
+                        server_data_addr.sin_family = AF_INET;	//address family
+                        server_data_addr.sin_port = htons(9000);	//using port 9000 because port 20 is priveledged
+                        server_data_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+
+                        char server_data_ip[INET_ADDRSTRLEN]; 
+                        inet_ntop(AF_INET, &(client_data_addr.sin_addr), server_data_ip, INET_ADDRSTRLEN);
+                        printf("Server is connecting to IP: %s and Port: %d\n",client_data_ip,htons(client_data_port));
+                        //connecting to server socket
+                        int value =1;
+                        setsockopt(data_fd,SOL_SOCKET,SO_LINGER,&value,sizeof(value));
+                        if (bind(data_fd, (struct sockaddr*) &server_data_addr, sizeof(struct sockaddr_in)) == 0)
+                            printf("Server Data binded Correctly\n");
+                        else
+                            printf("Server Data unable to bind\n");
+
+                        if(connect(data_fd,(struct sockaddr*)&client_data_addr,sizeof(client_data_addr))<0)
+                        {
+                            perror("Connection Failed: Server Data.");
+                            exit(-1);
+                        }
+
+                        bzero(&server_response,sizeof(server_response));
+                            
+                        
+                            char filename[256];
+                            strcpy(filename,cptr);
+
+                            char server_file[256];
+                            strcpy(server_file, "Server-");
+                            strcat(server_file, filename);
+                            FILE *fptr;		//create requested file
+                            // if (!(fptr = fopen(server_file, "w")))
+                            // {
+                            //     perror("Sorry, this file can't be created.");
+                            //     return;
+                            // }
+                            int bytesReceived = 0;
+                            char recvBuff[1024];
+                            memset(recvBuff, '0', sizeof(recvBuff));
+                            fptr = fopen(server_file, "w"); 
+                            
+                            if(NULL == fptr)
+                            {
+                                printf("Error opening file");
+                                return;
+                            }
+                            else
+                            {
+                                // char server_data[256];
+
+                                // int server_return_value = 0;
+                                // memset(server_data, 0, sizeof(server_data));
+                                // while ((server_return_value = recv(data_fd, server_data, sizeof(server_data), 0)) > 0)
+                                // {
+                                //     printf("This is what we receive: %s\n",server_data);
+                                //     fseek (fptr, 0, SEEK_CUR);
+                                //     fputs(server_data, fptr);
+                                //     memset(server_data, 0, sizeof(server_data));
+                                //     fflush(fptr);
+                                // }
+
+                                // fclose(fptr);
+                                // fflush(stdout);   
+                            
+                            
+                                
+                                while((bytesReceived = read(data_fd, recvBuff, 1024)) > 0)
+                                { 
+                                    
+                                    // recvBuff[n] = 0;
+                                    fflush(stdout);
+                                    fwrite(recvBuff, 1,bytesReceived,fptr);
+                                    // printf("%s \n", recvBuff);
+                                }
+
+                                if(bytesReceived < 0)
+                                {
+                                    printf("\n Read Error \n");
+                                }
+                                printf("\nFile OK....Completed\n");
+                                
+                            }
+                            fclose(fptr);
+                            strcat(server_response,"226 Transfer completed.");
+                            send(client_sd,server_response,strlen(server_response),0);
+                            close(data_fd);
+                            fflush(stdout);
                     }
                     else
                     {
-                        // char server_data[256];
-
-                        // int server_return_value = 0;
-                        // memset(server_data, 0, sizeof(server_data));
-                        // while ((server_return_value = recv(data_fd, server_data, sizeof(server_data), 0)) > 0)
-                        // {
-                        //     printf("This is what we receive: %s\n",server_data);
-                        //     fseek (fptr, 0, SEEK_CUR);
-                        //     fputs(server_data, fptr);
-                        //     memset(server_data, 0, sizeof(server_data));
-                        //     fflush(fptr);
-                        // }
-
-                        // fclose(fptr);
-                        // fflush(stdout);   
-                    
-                    
-                        
-                        while((bytesReceived = read(data_fd, recvBuff, 1024)) > 0)
-                        { 
-                            
-                            // recvBuff[n] = 0;
-                            fflush(stdout);
-                            fwrite(recvBuff, 1,bytesReceived,fptr);
-                            // printf("%s \n", recvBuff);
-                        }
-
-                        if(bytesReceived < 0)
-                        {
-                            printf("\n Read Error \n");
-                        }
-                        printf("\nFile OK....Completed\n");
-                        
+                        bzero(&server_response,sizeof(server_response));
+                        strcpy(server_response,"550 No such file or directory.");  
+                        send(client_sd,server_response,strlen(server_response),0);
+                        exit(1);
                     }
-                    fclose(fptr);
-                    strcat(server_response,"226 Transfer completed.");
-                    send(client_sd,server_response,strlen(server_response),0);
-                    close(data_fd);
-                    fflush(stdout);
+                    
                 }
+                
             }
             else if(strncmp(client_command, "LIST",4) == 0 ||  strncmp(client_command, "list",4) == 0)
             {
