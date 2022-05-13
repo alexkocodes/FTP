@@ -244,7 +244,7 @@ int main(int argc, char *argv[])
                     FILE *fptr = fopen(filename,"r");		//open requested file
                     if(fptr == NULL) //serving error message in case file not present in disk
                     {	
-                        perror("File does not exist.");
+                        printf("No such file or directory.\n");
                         continue;
                     }
                     
@@ -590,6 +590,7 @@ int main(int argc, char *argv[])
                             send(server_fd, client_input, strlen(client_input), 0);
                             recv(server_fd, response, sizeof(response), 0);
                             printf("%s\n", response);
+                            close(client_receiver_sd);
                             
                         }
                 
@@ -817,6 +818,7 @@ int main(int argc, char *argv[])
                 if (chdir(foldername) != 0)
                 {
                     printf("Change to %s failed\n", foldername);
+                    printf("No such file or directory.\n");
                 } 
                 fflush(stdout);
             }
