@@ -96,7 +96,9 @@ int main(int argc, char *argv[])
         {
             printf("\nftp> ");
             fgets(command, sizeof(command), stdin); 
+            // scanf("%s",command);
             command[strcspn(command, "\n")] = 0; //removing trailing \n in string
+            // printf("Command is: %s",command);
         }
 
         //QUIT command 
@@ -223,7 +225,7 @@ int main(int argc, char *argv[])
                     //b.server connects to that port using port 20; client accepts connection
                     unsigned int server_data_len = sizeof(server_data_addr);
                     int server_data_sd = accept(client_sender_sd,(struct sockaddr *) &server_data_addr,&server_data_len);
-                    printf("Client Port Accepting: %d\n",client_sender_addr.sin_port);
+                    printf("\rClient Port Accepting: %d\n",client_sender_addr.sin_port);
                     //5.after connection is established, send file data from client to server
                     
 
@@ -392,7 +394,7 @@ int main(int argc, char *argv[])
                             perror("Accept error\n");
                         }
                         
-                        printf("Client Port Accepting: %d\n",client_receiver_addr.sin_port);
+                        printf("\rClient Port Accepting: %d\n",client_receiver_addr.sin_port);
                         
                         //5.after connection is established, send file data from server to client
                         char delim[] = " ";
@@ -532,44 +534,44 @@ int main(int argc, char *argv[])
                     printf("%s\n", response);
                 }
                 int client_receiver_sd = socket(AF_INET,SOCK_STREAM,0);
-                        if(client_receiver_sd<0)
-                        {
-                            perror("Client Receiver Socket creation:");
-                            exit(-1);
-                        }
-                        //setsock
-                        // int value  = 1;
-                        // setsockopt(client_receiver_sd,SOL_SOCKET,SO_REUSEADDR,&value,sizeof(value)); //&(int){1},sizeof(int)
-                        // struct sockaddr_in client_receiver_addr;
+                if(client_receiver_sd<0)
+                {
+                    perror("Client Receiver Socket creation:");
+                    exit(-1);
+                }
+                //setsock
+                // int value  = 1;
+                // setsockopt(client_receiver_sd,SOL_SOCKET,SO_REUSEADDR,&value,sizeof(value)); //&(int){1},sizeof(int)
+                // struct sockaddr_in client_receiver_addr;
 
-                        // bzero(&client_receiver_addr,sizeof(client_receiver_addr));
+                // bzero(&client_receiver_addr,sizeof(client_receiver_addr));
 
-                        // client_receiver_addr.sin_family = AF_INET;
-                        // client_receiver_addr.sin_port = htons(client_port_no);
-                        // client_receiver_addr.sin_addr.s_addr = htonl(INADDR_ANY); //INADDR_ANY, INADDR_LOOP
+                // client_receiver_addr.sin_family = AF_INET;
+                // client_receiver_addr.sin_port = htons(client_port_no);
+                // client_receiver_addr.sin_addr.s_addr = htonl(INADDR_ANY); //INADDR_ANY, INADDR_LOOP
 
-                        struct sockaddr_in client_receiver_addr;	//structure to save IP address and port
-                        memset(&client_receiver_addr,0,sizeof(client_receiver_addr)); //Initialize/fill the server_address to 0
-                        client_receiver_addr.sin_family = AF_INET;	//address family
-                        client_receiver_addr.sin_port = htons(client_port_no);	//port
-                        client_receiver_addr.sin_addr.s_addr = inet_addr("127.0.0.1"); //htonl(INADDR_LOOPBACK); //inet_addr("127.0.0.1");
+                struct sockaddr_in client_receiver_addr;	//structure to save IP address and port
+                memset(&client_receiver_addr,0,sizeof(client_receiver_addr)); //Initialize/fill the server_address to 0
+                client_receiver_addr.sin_family = AF_INET;	//address family
+                client_receiver_addr.sin_port = htons(client_port_no);	//port
+                client_receiver_addr.sin_addr.s_addr = inet_addr("127.0.0.1"); //htonl(INADDR_LOOPBACK); //inet_addr("127.0.0.1");
 
-                        setsockopt(client_receiver_sd,SOL_SOCKET,SO_REUSEADDR,&(int){1},sizeof(int)); //&(int){1},sizeof(int)
+                setsockopt(client_receiver_sd,SOL_SOCKET,SO_REUSEADDR,&(int){1},sizeof(int)); //&(int){1},sizeof(int)
 
-                        //bind
-                        if(bind(client_receiver_sd, (struct sockaddr*)&client_receiver_addr,sizeof(client_receiver_addr))<0)
-                        {
-                            perror("Client Receiver Socket: bind failed");
-                            exit(-1);
-                        }
-                        //listen
-                        printf("Client Port Listening: %d\n",htons(client_port_no));
-                        if(listen(client_receiver_sd,5)<0)
-                        {
-                            perror("Client Receiver Socket: listen failed");
-                            close(client_receiver_sd);
-                            exit(-1);
-                        }
+                //bind
+                if(bind(client_receiver_sd, (struct sockaddr*)&client_receiver_addr,sizeof(client_receiver_addr))<0)
+                {
+                    perror("Client Receiver Socket: bind failed");
+                    exit(-1);
+                }
+                //listen
+                printf("Client Port Listening: %d\n",htons(client_port_no));
+                if(listen(client_receiver_sd,5)<0)
+                {
+                    perror("Client Receiver Socket: listen failed");
+                    close(client_receiver_sd);
+                    exit(-1);
+                }
 
                 // printf("If is working\n");
                     int pid = fork();
@@ -587,7 +589,7 @@ int main(int argc, char *argv[])
                             exit(-1);
                         }
                         
-                        printf("Client time %lu \n",time(NULL));
+                        printf("\rClient time %lu \n",time(NULL));
                        
                         //c.server sends data to client
                         // printf("Client Port After Accepting: %d\n",htons(client_port_no));
@@ -608,7 +610,7 @@ int main(int argc, char *argv[])
                         bzero(&response,sizeof(response));
                         recv(server_fd, response, sizeof(response), 0);
                         printf("%s\n", response);
-                        
+                        // break;
                         
                     }
                     else
@@ -618,8 +620,8 @@ int main(int argc, char *argv[])
                         recv(server_fd, response, sizeof(response), 0);
                         printf("%s\n", response);
                         close(client_receiver_sd);
-                       
-                        // wait(NULL);
+                        
+                        // quit
                     }
                     
 
@@ -698,6 +700,10 @@ int main(int argc, char *argv[])
         else
         {
             char invalid[256];
+            if (command != "")
+                printf("This is the invalid command:%s%d\n",command, strlen(command));
+            else    
+                 printf("Command is empty: %s\n",command);
             strcpy(invalid, "INVALID");
             bzero(&response,sizeof(response));
             send(server_fd, invalid, strlen(invalid), 0);
