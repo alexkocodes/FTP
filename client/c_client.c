@@ -9,7 +9,48 @@
 #include<pthread.h>
 #include <time.h>
 
+struct arg_struct {
+    int arg1;
+    int arg2;
+};
 
+void *handle_list(void *arguements)
+{
+    struct arg_struct *args = arguements;
+    char response[256];
+
+    int client_receiver_sd = args->arg1;
+    int server_fd = args->arg1;
+    int server_data_sd = accept(client_receiver_sd,NULL,NULL);
+    if(server_data_sd <1){
+        perror("Client Data Accept Error.");
+        exit(-1);
+    }
+    
+    
+    char server_message[256]; //to receive server's message 
+    bzero(server_message,sizeof(server_message));
+    printf("\r");
+    while(recv(server_data_sd,server_message,sizeof(server_message),0) != 0)
+    { // receive message from server: <list of files> 226 Transfer completed.
+        printf("%s\n",server_message);
+        // bzero(server_message,sizeof(server_message));
+        fflush(stdout);
+    }
+    
+    
+    
+    bzero(&response,sizeof(response));
+    recv(server_fd, response, sizeof(response), 0);
+    printf("%s\n", response);
+    // fork_counter++;
+    close(server_data_sd);
+    close(client_receiver_sd);
+    fflush(stdout);
+    pthread_exit(NULL);
+    return NULL;                   
+                            
+}
 
 
 int main(int argc, char *argv[])
@@ -88,7 +129,9 @@ int main(int argc, char *argv[])
     char response[512];
     char client_input[256];
     // int print_it = 1;
-    while(1){
+    int l = 1;
+    while(l)
+    {
         bzero(command,sizeof(command));
         bzero(&response,sizeof(response));
         
@@ -216,8 +259,8 @@ int main(int argc, char *argv[])
                         
                             
 
-                            int pid = fork();
-                            if (pid == 0)
+                            // int pid = fork();
+                            // if (pid == 0)
                             {
                                 int client_sender_sd = socket(AF_INET,SOCK_STREAM,0);
                                 if(client_sender_sd<0)
@@ -249,7 +292,10 @@ int main(int argc, char *argv[])
                                     close(client_sender_sd);
                                     exit(-1);
                                 }
-
+                                bzero(&response,sizeof(response));
+                                send(server_fd, client_input, strlen(client_input), 0);
+                                recv(server_fd, response, sizeof(response), 0);
+                                printf("%s\n", response);
                                 //b.server connects to that port using port 20; client accepts connection
                                 unsigned int server_data_len = sizeof(server_data_addr);
                                 int server_data_sd = accept(client_sender_sd,(struct sockaddr *) &server_data_addr,&server_data_len);
@@ -310,13 +356,14 @@ int main(int argc, char *argv[])
 
                                 
                             }
-                            else{
-                                bzero(&response,sizeof(response));
-                                send(server_fd, client_input, strlen(client_input), 0);
-                                recv(server_fd, response, sizeof(response), 0);
-                                printf("%s\n", response);
-                                fork_pid_array[fork_counter] = pid;
-                                fork_counter++;
+                            // else
+                            {
+                                // bzero(&response,sizeof(response));
+                                // send(server_fd, client_input, strlen(client_input), 0);
+                                // recv(server_fd, response, sizeof(response), 0);
+                                // printf("%s\n", response);
+                                // fork_pid_array[fork_counter] = pid;
+                                // fork_counter++;
                                 // if(strcmp(response,"150 File status okay; about to open. data connection.") == 0) //error handling in case file is invalid
                                 // {   //4.create a data connection by:
                                 
@@ -363,72 +410,78 @@ int main(int argc, char *argv[])
 
             //1.sending client port over to server using PORT command: Server responds with: 200 PORT command successful.
                 // client_port_no++;
-                int p1,p2;
-                p1 = client_port_no/256;
-                p2 = client_port_no%256;
-                char port_command[256] = "PORT 127,0,0,1,";
-                char p_1[256];
-                char p_2[256];
-                sprintf(p_1, "%d", p1);
-                sprintf(p_2, "%d", p2);
-                strcat(port_command,p_1);
-                strcat(port_command,",");
-                strcat(port_command,p_2);
-                bzero(&response,sizeof(response));
-                send(server_fd, port_command, strlen(port_command), 0);
-                recv(server_fd, response, sizeof(response), 0);
-                if(strcmp(response,"200 PORT command successful.") == 0)
+            int p1,p2;
+            p1 = client_port_no/256;
+            p2 = client_port_no%256;
+            char port_command[256] = "PORT 127,0,0,1,";
+            char p_1[256];
+            char p_2[256];
+            sprintf(p_1, "%d", p1);
+            sprintf(p_2, "%d", p2);
+            strcat(port_command,p_1);
+            strcat(port_command,",");
+            strcat(port_command,p_2);
+            bzero(&response,sizeof(response));
+            send(server_fd, port_command, strlen(port_command), 0);
+            recv(server_fd, response, sizeof(response), 0);
+            if(strcmp(response,"200 PORT command successful.") == 0)
+            {
+                printf("%s\n", response);
+            
+
+        //2.sending RETR command: Server responds with: 150 File status okay; about to open. data connection or 550 No such file or directory or 530: Not Logged in.
+            
+                char new_command[256];
+                strcpy(new_command,client_input);
+                char delim[] = " ";
+                char *ptr = strtok(new_command,delim);
+                ptr = strtok(NULL,delim);
+
+                if(ptr != NULL)
                 {
-                    printf("%s\n", response);
-                
-
-            //2.sending STOR command: Server responds with: 150 File status okay; about to open. data connection or 550 No such file or directory or 530: Not Logged in.
-                
-                    char new_command[256];
-                    strcpy(new_command,client_input);
-                    char delim[] = " ";
-                    char *ptr = strtok(new_command,delim);
-                    ptr = strtok(NULL,delim);
-
-                    if(ptr != NULL)
-                    {
-                        char filename[256];
-                        strcpy(filename,ptr);
-                        int pid = fork();
-                        if (pid == 0)
+                    char filename[256];
+                    strcpy(filename,ptr);
+                    // int pid = fork();
+                    // if (pid == 0)
+                    // {
+                        int client_receiver_sd = socket(AF_INET,SOCK_STREAM,0);
+                        if(client_receiver_sd<0)
                         {
-                            int client_receiver_sd = socket(AF_INET,SOCK_STREAM,0);
-                            if(client_receiver_sd<0)
-                            {
-                                perror("Client Receiver Socket creation:");
-                                exit(-1);
-                            }
-                            //setsock
-                            int value  = 1;
-                            setsockopt(client_receiver_sd,SOL_SOCKET,SO_REUSEADDR,&value,sizeof(value)); //&(int){1},sizeof(int)
-                            struct sockaddr_in client_receiver_addr, server_data_addr;
+                            perror("Client Receiver Socket creation:");
+                            exit(-1);
+                        }
+                        //setsock
+                        int value  = 1;
+                        setsockopt(client_receiver_sd,SOL_SOCKET,SO_REUSEADDR,&value,sizeof(value)); //&(int){1},sizeof(int)
+                        struct sockaddr_in client_receiver_addr, server_data_addr;
 
-                            bzero(&client_receiver_addr,sizeof(client_receiver_addr));
+                        bzero(&client_receiver_addr,sizeof(client_receiver_addr));
 
-                            client_receiver_addr.sin_family = AF_INET;
-                            client_receiver_addr.sin_port = htons(client_port_no);
-                            client_receiver_addr.sin_addr.s_addr = htonl(INADDR_ANY); //INADDR_ANY, INADDR_LOOP
+                        client_receiver_addr.sin_family = AF_INET;
+                        client_receiver_addr.sin_port = htons(client_port_no);
+                        client_receiver_addr.sin_addr.s_addr = htonl(INADDR_ANY); //INADDR_ANY, INADDR_LOOP
 
-                            //bind
-                            if(bind(client_receiver_sd, (struct sockaddr*)&client_receiver_addr,sizeof(client_receiver_addr))<0)
-                            {
-                                perror("Client Receiver Socket: bind failed");
-                                exit(-1);
-                            }
-                            //listen
-                            // printf("Client Port Listening: %d\n",htons(client_port_no));
-                            if(listen(client_receiver_sd,5)<0)
-                            {
-                                perror("Client Receiver Socket: listen failed");
-                                close(client_receiver_sd);
-                                exit(-1);
-                            }
-
+                        //bind
+                        if(bind(client_receiver_sd, (struct sockaddr*)&client_receiver_addr,sizeof(client_receiver_addr))<0)
+                        {
+                            perror("Client Receiver Socket: bind failed");
+                            exit(-1);
+                        }
+                        //listen
+                        // printf("Client Port Listening: %d\n",htons(client_port_no));
+                        if(listen(client_receiver_sd,5)<0)
+                        {
+                            perror("Client Receiver Socket: listen failed");
+                            close(client_receiver_sd);
+                            exit(-1);
+                        }
+                        bzero(&response,sizeof(response));
+                        send(server_fd, client_input, strlen(client_input), 0);
+                        recv(server_fd, response, sizeof(response), 0);
+                        
+                        if(strcmp(response,"150 File status okay; about to open data connection.") == 0)
+                        {
+                            printf("%s\n", response);
                             //b.server connects to that port using port 20; client accepts connection
                             unsigned int server_data_len = sizeof(server_data_addr);
                             int server_data_sd = accept(client_receiver_sd,(struct sockaddr *) &server_data_addr,&server_data_len);
@@ -512,8 +565,24 @@ int main(int argc, char *argv[])
                             recv(server_fd,server_message,sizeof(server_message),0); // receive message from server: 226 Transfer completed.
                             printf("\r%s\n",server_message);
                             fork_counter++;
+
+                        
                             
-                                
+                    //     }
+                    // else
+                    // {
+                    //     bzero(&response,sizeof(response));
+                    //     send(server_fd, client_input, strlen(client_input), 0);
+                    //     recv(server_fd, response, sizeof(response), 0);
+                    //     printf("%s\n", response);
+                    //     fork_pid_array[fork_counter] = pid;
+                    //     fork_counter++;
+                    //     if(strcmp(response,"150 File status okay; about to open. data connection.") == 0)
+                    //     {
+                        
+                    //     }
+                    // }
+                    
                         }
                         else
                         {
@@ -521,45 +590,32 @@ int main(int argc, char *argv[])
                             send(server_fd, client_input, strlen(client_input), 0);
                             recv(server_fd, response, sizeof(response), 0);
                             printf("%s\n", response);
-                            fork_pid_array[fork_counter] = pid;
-                            fork_counter++;
-                            // if(strcmp(response,"150 File status okay; about to open. data connection.") == 0)
-                            // {
                             
-                            // }
                         }
-                        
-                    }
-                    else
-                    {
-                        bzero(&response,sizeof(response));
-                        send(server_fd, client_input, strlen(client_input), 0);
-                        recv(server_fd, response, sizeof(response), 0);
-                        printf("%s\n", response);
-                        
-                    }
-                    
+                
 
-                        
-                    // else
-                    // {
-                    //     bzero(&response,sizeof(response));
-                    //     send(server_fd, new_command, strlen(new_command), 0);
-                    //     recv(server_fd, response, sizeof(response), 0);
-                    //     printf("%s\n", response);
-                    // }
-                    fflush(stdout);
-               
-                }
-                else{
+                }   
+                else
+                {
+                    bzero(&response,sizeof(response));
+                    send(server_fd, new_command, strlen(new_command), 0);
+                    recv(server_fd, response, sizeof(response), 0);
                     printf("%s\n", response);
                 }
+                fflush(stdout);
+            
+            }
+            else
+            {
+                printf("%s\n", response);
+            }
             
         }
 
 
         //LIST command
-        else if(strcmp(command, "LIST") == 0 ||  strcmp(command, "list") == 0){
+        else if(strcmp(command, "LIST") == 0 ||  strcmp(command, "list") == 0)
+        {
             
             //1.sending client port over to server using PORT command: Server responds with: 200 PORT command successful.
                 // client_port_no += 1;
@@ -623,14 +679,18 @@ int main(int argc, char *argv[])
                     }
 
                     // printf("If is working\n");
-                        int pid = fork();
-                        if(pid == 0)
-                        {
+                        // int pid = fork();
+                        // if(pid == 0)
+                        // {
 
                             
                             
                             //b.server connects to that port using port 20; client accepts connection
                             // printf("Client Port Accepting: %d\n",client_receiver_addr.sin_port);
+                            bzero(&response,sizeof(response));
+                            send(server_fd, command, strlen(command), 0);
+                            recv(server_fd, response, sizeof(response), 0);
+                            printf("%s\n", response);
                             // print_it = 0;
                             int server_data_sd = accept(client_receiver_sd,NULL,NULL);
                             if(server_data_sd <1){
@@ -652,8 +712,7 @@ int main(int argc, char *argv[])
                                 fflush(stdout);
                             }
                             
-                            close(server_data_sd);
-                            close(client_receiver_sd);
+                           
                             // return NULL;
                             // print_it = 1;
                             //4.close connection
@@ -661,21 +720,36 @@ int main(int argc, char *argv[])
                             recv(server_fd, response, sizeof(response), 0);
                             printf("%s\n", response);
                             fork_counter++;
-                            // break;
-                            
-                        }
-                        else
-                        {   
-
-                            bzero(&response,sizeof(response));
-                            send(server_fd, command, strlen(command), 0);
-                            recv(server_fd, response, sizeof(response), 0);
-                            printf("%s\n", response);
+                            close(server_data_sd);
                             close(client_receiver_sd);
-                            fork_pid_array[fork_counter] = pid;
-                            fork_counter++;
+                            fflush(stdout);
+                            // printf("trying to break free\n");
+                            // l = 0;
+                            // l = 0; 
+                            // exit(0);
+                            // printf("still trying to break free\n");
+                            
+                        // }
+                        // else
+                        // {   
+                            // struct arg_struct args;
+                        //     args.arg1 = client_receiver_sd;
+                        //     args.arg2 = server_fd;
+                        //     pthread_t t;
+                        //     pthread_create(&t, NULL, handle_list, (void *)&args);
+                            // bzero(&response,sizeof(response));
+                            // send(server_fd, command, strlen(command), 0);
+                            // recv(server_fd, response, sizeof(response), 0);
+                            // printf("%s\n", response);
+                            // close(client_receiver_sd);
+                            // fork_pid_array[fork_counter] = pid;
+                            // fork_counter++;
+                            // continue;
+                            // return NULL;
+                            // l = 1; 
+                            // break;
                             // quit
-                        }
+                        // }
                     
                 }  
                 else{
@@ -700,14 +774,21 @@ int main(int argc, char *argv[])
 
 
         //!LIST command
-        else if(strcmp(command, "!LIST") == 0 ||  strcmp(command, "!list") == 0){
+        else if(strcmp(command, "!LIST") == 0 ||  strcmp(command, "!list") == 0)
+        {
+            // for(int i =0; i < fork_counter; i++)
+            // {
+            //     int rd = kill(fork_pid_array[fork_counter],SIGINT);
+            // }
             system("ls");
+            fflush(stdout);
         }
 
 
         //CWD command
-        else if(strcmp(command, "CWD") == 0 ||  strcmp(command, "cwd") == 0){
-            send(server_fd, client_input, strlen(command), 0);
+        else if(strcmp(command, "CWD") == 0 ||  strcmp(command, "cwd") == 0)
+        {
+            send(server_fd, client_input, strlen(client_input), 0);
             bzero(&response,sizeof(response));
             recv(server_fd, response, sizeof(response), 0);
             // char string_terminate = '\0';
@@ -719,7 +800,8 @@ int main(int argc, char *argv[])
 
 
         //!CWD command
-        else if(strcmp(command, "!CWD") == 0 ||  strcmp(command, "!cwd") == 0){
+        else if(strcmp(command, "!CWD") == 0 ||  strcmp(command, "!cwd") == 0)
+        {
             
             char delim[] = " ";
             char *foldername = strtok(client_input,delim);
@@ -729,11 +811,14 @@ int main(int argc, char *argv[])
                 printf("No such file or directory.\n");
             }
 
-            else{
+            else
+            {
                 printf("Changing to local folder %s\n", foldername);
-                if (chdir(foldername) != 0){
+                if (chdir(foldername) != 0)
+                {
                     printf("Change to %s failed\n", foldername);
                 } 
+                fflush(stdout);
             }
             
 
@@ -742,7 +827,8 @@ int main(int argc, char *argv[])
 
 
         //PWD command
-        else if(strcmp(command, "PWD") == 0 ||  strcmp(command, "pwd") == 0){
+        else if(strcmp(command, "PWD") == 0 ||  strcmp(command, "pwd") == 0)
+        {
             send(server_fd, command, strlen(command), 0);
             bzero(&response,sizeof(response));
             recv(server_fd, response, sizeof(response), 0);
@@ -752,9 +838,11 @@ int main(int argc, char *argv[])
 
 
         //!PWD command
-        else if(strcmp(command, "!PWD") == 0 ||  strcmp(command, "!pwd") == 0){
+        else if(strcmp(command, "!PWD") == 0 ||  strcmp(command, "!pwd") == 0)
+        {
             
             system("pwd");
+            fflush(stdout);
 
         }
 
@@ -773,11 +861,13 @@ int main(int argc, char *argv[])
             recv(server_fd, response, sizeof(response), 0);
             printf("%s\n", response);
         }
+        // break;
+        // printf("Process is: %d",getpid());
     }
 
 
 
-
+    
     return 0;
 }
 

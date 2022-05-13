@@ -141,8 +141,8 @@ void close_client_connection(int client_sd, struct Users user_array[]){
 //a function to handle client connections that connect to server -> parameter: client descriptor and user array , int *socket_list
 void handle_connection(int client_sd, struct Users user_array[MAX_USER]){
 
-    int *check = mmap(NULL, sizeof(client_data_port), PROT_READ | PROT_WRITE, 
-                    MAP_SHARED | MAP_ANONYMOUS, 0, 0);
+    // int *check = mmap(NULL, sizeof(client_data_port), PROT_READ | PROT_WRITE, 
+    //                 MAP_SHARED | MAP_ANONYMOUS, 0, 0);
 
     // struct arg_struct *args = arguments;
     // // int client_sd = *(int*)client_sd_pointer;
