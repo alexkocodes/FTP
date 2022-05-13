@@ -1,3 +1,4 @@
+//FTP Server
 #include<stdio.h>
 #include<stdlib.h>
 #include<netinet/in.h>
@@ -13,7 +14,7 @@
 #define MAX_SOCKET_NUM 10
 #define MAX_USER 2
 
-
+//the user structure to store username, password, client socket descriptor associated with the user and its login status
 struct Users {
 	char *username;
 	char *password;
@@ -27,11 +28,12 @@ struct arg_struct {
     struct Users *arg2;
 };
 
-
+//variable to store client's data port and IP
 int client_data_port = 0;
 
 char client_data_ip[256];
 
+// a function to handle list command in thread
 void *handle_list(void *arg){
 
     char server_response[256];
@@ -47,15 +49,15 @@ void *handle_list(void *arg){
         return NULL;
     }
 
-    // sleep(2);
-    //building socket's Internet Address
+    
+    //building data socket's Internet Address using received client port and IP
     struct sockaddr_in client_data_addr,server_data_addr;
 
     bzero(&client_data_addr,sizeof(client_data_addr));
     client_data_addr.sin_family = AF_INET;
     client_data_addr.sin_port = htons(client_data_port);
     client_data_addr.sin_addr.s_addr = inet_addr(client_data_ip);
-    // inet_pton(AF_INET, client_data_ip, &(client_data_addr.sin_addr));
+   
 
     bzero(&server_data_addr,sizeof(server_data_addr));
     server_data_addr.sin_family = AF_INET;	//address family
@@ -73,7 +75,7 @@ void *handle_list(void *arg){
         printf("Server Data binded Correctly\n");
     else
     {
-        // perror("bind\n");
+        
         printf("Server Data unable to bind\n");
     }
 
@@ -87,6 +89,7 @@ void *handle_list(void *arg){
 
     bzero(&server_response,sizeof(server_response));
     char file_line[256];
+    //creating a pipe to send back the list of files in the server directory to the client
     FILE *list_file = popen("ls", "r");
     if (list_file)
     {
@@ -106,24 +109,18 @@ void *handle_list(void *arg){
     strcat(server_response,"226 Transfer completed.");
     send(client_sd,server_response,strlen(server_response),0);
 
-    //munmap(&client_data_port, sizeof(client_data_port));
+    
     if(close(data_fd)<0){
         perror("close error\n");
     };
 
     return NULL;
 }
-//a function to close client connections that connect to server -> parameter: client descriptor, user array and current set of file descriptors , int *socket_list
+//a function to close client connections that connect to server -> parameter: client descriptor, user array
 void close_client_connection(int client_sd, struct Users user_array[]){
 
     
-	// for (int i = 0; i < MAX_SOCKET_NUM; i++)
-	// {
-	// 	if (socket_list[i] == client_sd)
-	// 	{
-	// 		socket_list[i] = 0;
-	// 	}
-	// }
+	
     close(client_sd);
 	for (int i = 0; i < MAX_USER; i++)
 	{
@@ -138,17 +135,10 @@ void close_client_connection(int client_sd, struct Users user_array[]){
 }
  
 
-//a function to handle client connections that connect to server -> parameter: client descriptor and user array , int *socket_list
+//a function to handle client connections that connect to server -> parameter: client descriptor and user array
 void handle_connection(int client_sd, struct Users user_array[MAX_USER]){
 
-    // int *check = mmap(NULL, sizeof(client_data_port), PROT_READ | PROT_WRITE, 
-    //                 MAP_SHARED | MAP_ANONYMOUS, 0, 0);
-
-    // struct arg_struct *args = arguments;
-    // // int client_sd = *(int*)client_sd_pointer;
-	// free(client_sd_pointer);
-
-    // printf("in handle conncetions\n");
+    
     int authentication_status = 0; //0-> Not logged in; 1 -> Logged In.
     char client_request[256];
     bzero(&client_request, sizeof(client_request));
@@ -160,6 +150,7 @@ void handle_connection(int client_sd, struct Users user_array[MAX_USER]){
     
     while(1)
     {
+        //see if there is an authenticated user to change authentication status for the session
         for (int i = 0; i < MAX_USER; i++)
         {	
             if (user_array[i].sock_num == client_sd && user_array[i].login_status == 2)
@@ -168,7 +159,7 @@ void handle_connection(int client_sd, struct Users user_array[MAX_USER]){
             }
         }
         bzero(&client_request, sizeof(client_request));
-    if (recv(client_sd, client_request, sizeof(client_request) - 1, 0) > 0)
+    if (recv(client_sd, client_request, sizeof(client_request) - 1, 0) > 0) //recieve input from client
 	{
         printf("Client req is %s: \n",client_request);
         char delim[] = " ";
@@ -186,6 +177,7 @@ void handle_connection(int client_sd, struct Users user_array[MAX_USER]){
                     {
                         cptr = strtok(NULL,delim);
                         if(cptr == NULL){
+                             // in case no username entered along with user command
                             bzero(&server_response, sizeof(server_response));
                             strcpy(server_response,"530 Not logged in.");
                             send(client_sd,server_response,strlen(server_response),0);
@@ -197,6 +189,7 @@ void handle_connection(int client_sd, struct Users user_array[MAX_USER]){
                             int user_existence = 0; // 0 -> Non-existent ; 1 -> Exists
                             for (int i = 0; i < MAX_USER; i++)
                             {	
+                                //if username matches and user is not logged in, change login status to 1 and update sock num with client_sd 
                                 if (strcmp(user_array[i].username, username) == 0)
                                 {
                                     if(user_array[i].login_status == 0 || user_array[i].login_status == 1)
@@ -218,6 +211,7 @@ void handle_connection(int client_sd, struct Users user_array[MAX_USER]){
                                     }
                                     else
                                     {
+                                        //user already logged in
                                         bzero(&server_response, sizeof(server_response));
                                         strcpy(server_response,"230 User logged in, proceed.");
                                         send(client_sd,server_response,strlen(server_response),0);
@@ -225,6 +219,7 @@ void handle_connection(int client_sd, struct Users user_array[MAX_USER]){
                                 
                                 }
                             }
+                            //in case it is a wrong username 
                             if(user_existence == 0){
                                 strcpy(server_response,"530 Not logged in.");
                                 printf("Not logged in: %s & %lu",server_response,sizeof(server_response));
@@ -245,6 +240,7 @@ void handle_connection(int client_sd, struct Users user_array[MAX_USER]){
                             {	
                                 if ((user_array[i].login_status == 1 || user_array[i].login_status == 2) && user_array[i].sock_num == client_sd)
                                 {
+                                    //if right password
                                     if(strcmp(user_array[i].password,password) == 0)
                                     {
                                         user_array[i].login_status = 2;
@@ -253,15 +249,10 @@ void handle_connection(int client_sd, struct Users user_array[MAX_USER]){
                                         bzero(&server_response, sizeof(server_response));
                                         valid_user = 1;
                                     }
-                                    // else
-                                    // {
-                                    //     bzero(&server_response, sizeof(server_response));
-                                    //     strcpy(server_response,"530 Not logged in.");
-                                    //     send(client_sd,server_response,strlen(server_response),0);
-                                    // }
-                                    // return;
+                                   
                                 }
                             }
+                            //if password is wrong
                             if(valid_user == 0)
                             {
                                 bzero(&server_response, sizeof(server_response));
@@ -271,6 +262,7 @@ void handle_connection(int client_sd, struct Users user_array[MAX_USER]){
                                 
                         }
                         else{
+                            // in case no password entered along with pass command
                             bzero(&server_response, sizeof(server_response));
                             strcpy(server_response,"530 Not logged in.");
                             send(client_sd,server_response,strlen(server_response),0);
@@ -278,12 +270,14 @@ void handle_connection(int client_sd, struct Users user_array[MAX_USER]){
                     }
                     else if((strcmp(client_command, "QUIT") == 0 ||  strcmp(client_command, "quit") == 0))
                     {
+                        //close client connections upon quit
                         strcpy(server_response,"221 Service closing control connection.");
                         send(client_sd,server_response,strlen(server_response),0);
                         close_client_connection(client_sd,user_array); //, socket_list
                         return;
                     }
                     else{
+                        //if any other command entered and the user has not logged in
                         strcpy(server_response,"530 Not logged in.");
                         send(client_sd,server_response,strlen(server_response),0);
                     }
@@ -294,6 +288,7 @@ void handle_connection(int client_sd, struct Users user_array[MAX_USER]){
             {
                 cptr = strtok(NULL,delim);
                 if(cptr == NULL){
+                    // in case no folder name is entered
                     bzero(&server_response, sizeof(server_response));
                     strcpy(server_response,"550 No such file or directory.");
                 }
@@ -303,16 +298,17 @@ void handle_connection(int client_sd, struct Users user_array[MAX_USER]){
                     strcpy(foldername,cptr);
                     foldername[strcspn(foldername, "\r\n")] = 0; //removing carriage return
                     bzero(&server_response, sizeof(server_response));
+                    //change the directory to the foldername specified
                     if (chdir(foldername) == 0){
+                    
                         strcpy(server_response,"200 directory changed to pathname/foldername.\n");
                         strcat(server_response,foldername);
-                        // send(client_sd,foldername,strlen(foldername),0);
-                        // system("pwd");
+                        
                     }
                     else{
+                        // in case of non existing folder
                         strcpy(server_response,"550 No such file or directory.");
-                        // send(client_sd,server_response,strlen(server_response),0);
-                        // strcat(server_response,foldername);
+                        
                     }
                 }
             
@@ -320,6 +316,7 @@ void handle_connection(int client_sd, struct Users user_array[MAX_USER]){
             }
             else if(strncmp(client_command, "PWD",3) == 0 ||  strncmp(client_command, "pwd",3) == 0)
             {
+                //get the current working directory and print it out
                 char wd[256];
                 getcwd(wd, sizeof(wd));
                 bzero(&server_response, sizeof(server_response));
@@ -330,7 +327,7 @@ void handle_connection(int client_sd, struct Users user_array[MAX_USER]){
             }
             else if(strncmp(client_command, "USER",3) == 0 ||  strncmp(client_command, "user",3) == 0)
             {
-                
+                //if user command entered after loggin in, just say User is alredy logged in
                 bzero(&server_response, sizeof(server_response));
                 strcpy(server_response,"230 User logged in, proceed.");
                 send(client_sd,server_response,strlen(server_response),0);
@@ -338,13 +335,14 @@ void handle_connection(int client_sd, struct Users user_array[MAX_USER]){
             }
             else if(strncmp(client_command, "PASS",3) == 0 ||  strncmp(client_command, "pass",3) == 0)
             {
+                //if pass command entered after loggin in, just say User is alredy logged in
                 bzero(&server_response, sizeof(server_response));
                 strcpy(server_response,"230 User logged in, proceed.");
                 send(client_sd,server_response,strlen(server_response),0);
             }
             else if(strncmp(client_command, "PORT",3) == 0 ||  strncmp(client_command, "port",3) == 0)
             {
-
+                //build the client IP and port from the port command and store it in the respective variables
                 cptr = strtok(NULL,delim);
                 char data_socket[256];
                 strcpy(data_socket,cptr);
@@ -381,6 +379,7 @@ void handle_connection(int client_sd, struct Users user_array[MAX_USER]){
             }
             else if(strncmp(client_command, "RETR",4) == 0 ||  strncmp(client_command, "retr",4) == 0) //file sent from server to client
             {
+                //fork a process in order to concurrently in order to not let file transfers block the system
                 int pid = fork();
                 if (pid == 0)
                 {
@@ -410,7 +409,7 @@ void handle_connection(int client_sd, struct Users user_array[MAX_USER]){
                                 return;
                             }
 
-                            //building socket's Internet Address
+                            //building data socket's Internet Address using the client port and IP received 
                             struct sockaddr_in client_data_addr,server_data_addr;
 
                             bzero(&client_data_addr,sizeof(client_data_addr));
@@ -441,31 +440,19 @@ void handle_connection(int client_sd, struct Users user_array[MAX_USER]){
                             }
                             printf("Server Filename: %s\n", filename);
                             bzero(&server_response,sizeof(server_response));
-                            // char line[256];
-                            // while (fgets(line, sizeof(line), fptr) != NULL) 
-                            // {
-                                
-                            //     if (send(data_fd, line, sizeof(line), 0) == -1) 
-                            //     {
-                            //         perror("Error Sending file..\n");
-                            //         return;
-                            //     }
-                            //     memset(line, 0, sizeof(line));
-                            // }
-                            // fclose(fptr);
-
                            
+                           //send data through the data channel
                             while(1)
                             {
                                 /* First read file in chunks of 256 bytes */
                                 unsigned char buff[1024]={0};
                                 int nread = fread(buff,1,1024,fptr);
-                                //printf("Bytes read %d \n", nread);        
+                                   
 
                                 /* If read was success, send data. */
                                 if(nread > 0)
                                 {
-                                    //printf("Sending \n");
+                                    
                                     write(data_fd, buff, nread);
                                 }
                                 if (nread < 1024)
@@ -490,6 +477,7 @@ void handle_connection(int client_sd, struct Users user_array[MAX_USER]){
                         }
                     }
                     else{
+                        //if invalid file
                         bzero(&server_response,sizeof(server_response));
                         strcpy(server_response,"550 No such file or directory.");  
                         send(client_sd,server_response,strlen(server_response),0);
@@ -502,6 +490,7 @@ void handle_connection(int client_sd, struct Users user_array[MAX_USER]){
             }
             else if(strncmp(client_command, "STOR",4) == 0 ||  strncmp(client_command, "stor",4) == 0) //file sent from client to server
             {
+                //fork a process in order to concurrently in order to not let file transfers block the system
                 int pid = fork();
                 if (pid == 0)
                 {
@@ -517,7 +506,7 @@ void handle_connection(int client_sd, struct Users user_array[MAX_USER]){
                             return;
                         }
 
-                        //building socket's Internet Address
+                        //building data socket's Internet Address using the client port and IP received
                         struct sockaddr_in client_data_addr,server_data_addr;
 
                         bzero(&client_data_addr,sizeof(client_data_addr));
@@ -550,72 +539,55 @@ void handle_connection(int client_sd, struct Users user_array[MAX_USER]){
                         bzero(&server_response,sizeof(server_response));
                             
                         
-                            char filename[256];
-                            strcpy(filename,cptr);
+                        char filename[256];
+                        strcpy(filename,cptr);
 
-                            char server_file[256];
-                            strcpy(server_file, "Server-");
-                            strcat(server_file, filename);
-                            FILE *fptr;		//create requested file
-                            // if (!(fptr = fopen(server_file, "w")))
-                            // {
-                            //     perror("Sorry, this file can't be created.");
-                            //     return;
-                            // }
-                            int bytesReceived = 0;
-                            char recvBuff[1024];
-                            memset(recvBuff, '0', sizeof(recvBuff));
-                            fptr = fopen(server_file, "w"); 
-                            
-                            if(NULL == fptr)
-                            {
-                                printf("Error opening file");
-                                return;
-                            }
-                            else
-                            {
-                                // char server_data[256];
-
-                                // int server_return_value = 0;
-                                // memset(server_data, 0, sizeof(server_data));
-                                // while ((server_return_value = recv(data_fd, server_data, sizeof(server_data), 0)) > 0)
-                                // {
-                                //     printf("This is what we receive: %s\n",server_data);
-                                //     fseek (fptr, 0, SEEK_CUR);
-                                //     fputs(server_data, fptr);
-                                //     memset(server_data, 0, sizeof(server_data));
-                                //     fflush(fptr);
-                                // }
-
-                                // fclose(fptr);
-                                // fflush(stdout);   
-                            
-                            
+                        char server_file[256];
+                        strcpy(server_file, "Server-"); //adding Server- in the front to mark it as the received file
+                        strcat(server_file, filename);
+                        FILE *fptr;		//create file to store data in
+                        
+                        int bytesReceived = 0;
+                        char recvBuff[1024];
+                        memset(recvBuff, '0', sizeof(recvBuff));
+                        fptr = fopen(server_file, "w"); 
+                        
+                        if(NULL == fptr)
+                        {
+                            printf("Error opening file");
+                            return;
+                        }
+                        else
+                        {
                                 
-                                while((bytesReceived = read(data_fd, recvBuff, 1024)) > 0)
-                                { 
-                                    
-                                    // recvBuff[n] = 0;
-                                    fflush(stdout);
-                                    fwrite(recvBuff, 1,bytesReceived,fptr);
-                                    // printf("%s \n", recvBuff);
-                                }
-
-                                if(bytesReceived < 0)
-                                {
-                                    printf("\n Read Error \n");
-                                }
-                                printf("\nFile OK....Completed\n");
+                        
+                        
+                            //reading and writing data
+                            while((bytesReceived = read(data_fd, recvBuff, 1024)) > 0)
+                            { 
+                                
+                                
+                                fflush(stdout);
+                                fwrite(recvBuff, 1,bytesReceived,fptr);
                                 
                             }
-                            fclose(fptr);
-                            strcat(server_response,"226 Transfer completed.");
-                            send(client_sd,server_response,strlen(server_response),0);
-                            close(data_fd);
-                            fflush(stdout);
+
+                            if(bytesReceived < 0)
+                            {
+                                printf("\n Read Error \n");
+                            }
+                            printf("\nFile OK....Completed\n");
+                            
+                        }
+                        fclose(fptr);
+                        strcat(server_response,"226 Transfer completed.");
+                        send(client_sd,server_response,strlen(server_response),0);
+                        close(data_fd);
+                        fflush(stdout);
                     }
                     else
                     {
+                        //in case of invalid file
                         bzero(&server_response,sizeof(server_response));
                         strcpy(server_response,"550 No such file or directory.");  
                         send(client_sd,server_response,strlen(server_response),0);
@@ -627,24 +599,22 @@ void handle_connection(int client_sd, struct Users user_array[MAX_USER]){
             }
             else if(strncmp(client_command, "LIST",4) == 0 ||  strncmp(client_command, "list",4) == 0)
             {
+                //create a thread to handle list command
                 pthread_t t;
                 pthread_create(&t, NULL, handle_list, &client_sd);
-                // int pid = fork();
-                // if (pid == 0 ){
-                //     handle_list(&client_sd);
-                // }
-                // pthread_join(t, NULL);
+                
             }
             
             else if((strcmp(client_command, "QUIT") == 0 ||  strcmp(client_command, "quit") == 0))
             {
+                //closing client connection when quit is specified
                 strcpy(server_response,"221 Service closing control connection.");
                 send(client_sd,server_response,strlen(server_response),0);
                 close_client_connection(client_sd,user_array); //, socket_list
                 return;
             }
             else{
-                
+                //in case of invalid command
                 strcpy(server_response,"202 Command not implemented.");
                 send(client_sd,server_response,strlen(server_response),0);
             }
@@ -658,8 +628,6 @@ void handle_connection(int client_sd, struct Users user_array[MAX_USER]){
     bzero(&server_response, sizeof(server_response));
     return;
 }
-// void handle_connection(void *arguments);
-
 
 
 
@@ -667,21 +635,8 @@ void handle_connection(int client_sd, struct Users user_array[MAX_USER]){
 int main()
 {
 
-    // creating user profiles
-	// struct Users users[MAX_USER];
-
-
-    // //working with this now; waiting for file reading system to be made
-    // users[0].username = "bob";
-    // users[0].password = "donuts";
-    // users[0].sock_num = 0;
-    // users[0].login_status = 0;
-
-    // users[1].username = "armaan";
-    // users[1].password = "pizza";
-    // users[1].sock_num = 0;
-    // users[1].login_status = 0;
-
+    
+    //server reads from users.txt and stores in struct user array
     char *filename = "users.txt";
     FILE *fp = fopen(filename, "r");
 
@@ -702,12 +657,11 @@ int main()
 		char * token = strtok(buffer, " ");
 		int i = 0;
 
-		// all_users[counter].username = malloc(256);
-		// all_users[counter].password = malloc(256);
+		
 
 		// loop through this line to extract all other tokens
 		while( token != NULL && strcmp(token, "\n") !=0 ) {
-			// printf( " %lu\n", sizeof(&token) ); //printing each token
+			
 			if(i == 0){
 				users[counter].username = malloc(128); // allocate memory for username
 				strcpy(users[counter].username, token);
@@ -725,93 +679,12 @@ int main()
 		counter += 1;
    	}
 
-	// for(int i=0; i<counter; i++){
-	// 	printf( "Username: %s\n", users[i].username ); //printing each user's username
-	// 	printf( "Password: %s\n", users[i].password ); //printing each user's password
-	// }
-	// when to free them?
-
-
-
     // close the file
     fclose(fp);
 
-    // -----------------------FILE READING FROM users.txt------------------------
-
-    // FILE *user_file = fopen("users.txt","r");
-    // if (user_file == NULL) {
-    //   perror("User File does not exist.");
-    //   return 0;
-    // }
-
-    // while(fread(&users, sizeof(Users), 1, user_file))
-    // {    printf ("Username = %s Password = %s\n", users.username,users.password);
-    // }
     
-    
-    // int i = 0;
-    // while (fscanf(user_file, "%s %s", users[i].username, users[i].password) == 2)
-    // ++i;
 
-    // for(int i =0; i<2; i++){
-    //     Users *u = &users[i];
-    //     printf("User: %s, Pass: %s, Socket: %d, Login: %d\n", u->username, u->password, u->sock_num, u->login_status);
-    // }
-    // char user_buffer[256];
-    // int i = 0;
-    // while (fgets(user_buffer, 256, user_file))
-    // {
-    //     // Remove trailing newline
-    //     user_buffer[strcspn(user_buffer, "\n")] = 0;
-
-    //     char username_string[256];
-    //     char delim[] = " ";
-    //     char password_string[256];
-    //     char *ptr = strtok(user_buffer,delim);
-    //     strcpy(username_string,ptr);
-    //     ptr = strtok(NULL,delim);
-    //     strcpy(password_string,ptr);
-        
-        
-        
-    //     char delim_2[] = ":";
-        
-    //     char *name_ptr = strtok(username_string,delim_2);
-    //     name_ptr = strtok(NULL,delim_2);
-    //     char username[256];
-    //     strcpy(username,name_ptr);
-        
-
-    //     char *pass_ptr = strtok(password_string,delim_2);
-    //     pass_ptr = strtok(NULL,delim_2);
-    //     char password[256];
-    //     strcpy(password,pass_ptr);
-
-        
-        
-    //     memmove(users[i].username, username, strlen(username));
-    //     users[i].username[strlen(username)] = '\0';
-
-    //     users[i].password = password;
-    //     users[i].sock_num = 0;
-    //     users[i].login_status = 0;
-
-    //     i++;
-
-        
-
-    //     // bzero(&user_buffer,sizeof(user_buffer));
-    // }
-
-    // for (int i =0; i<2; i++){
-    //     printf("User: %s, Pass: %s, Socket: %d, Login: %d\n", users[i].username, users[i].password, users[i].sock_num, users[i].login_status);
-    // }
-
-    // fclose(user_file);
-
-    //---------------------------------------------------------------------
-
-
+    //Building the main server socket
     //1. socket
 	int server_fd = socket(AF_INET,SOCK_STREAM,0);
 	if(server_fd<0)
@@ -853,114 +726,12 @@ int main()
 	//4. accept
 	while(1)
 	{
-        
-	// 	FD_ZERO(&socks); //FD_ZERO() clears out the fd_set called socks, so that it doesn't contain any file descriptors.
-	// 	FD_SET(server_fd, &socks); //FD_SET() adds the file descriptor "server_fd" to the fd_set, so that select() will return if a connection comes in on that socket (which means you have to do accept(), etc.
-
-	// 	int max_fd = server_fd; // set the initial max bit
-
-	// 	for (int i=0; i<MAX_SOCKET_NUM; i++){	
-	// 		if(socket_list[i]>0){ 
-	// 			FD_SET(socket_list[i], &socks); // add a new socket to the set
-	// 		}
-	// 		if(socket_list[i] > max_fd){ // update max socket bit in the set
-	// 			max_fd = socket_list[i];
-	// 		}
-	// 	}
-		
-
-	// 	if (select(max_fd + 1, &socks, NULL, NULL, NULL) < 0) // select function will block until something happens on one of the sockets in the set
-	// 	{
-	// 		perror("Select failed.\n");
-	// 		return -1;
-	// 	}
-
-	// 	// loop through the set to check each socket
-	// 	for (int i=0; i<=max_fd; i++){
-	// 		if(FD_ISSET(i, &socks))
-    //         {
-	// 			if(i == server_fd)
-    //             { // if it's the server socket chosen, it means that there's a new connection coming
-	// 				int client_sd = accept(server_fd,NULL,NULL);
-	// 				if(client_sd<1)
-	// 				{
-	// 					perror("Accept Error:");
-	// 					return -1;
-	// 				}
-    //                 // printf("Client Entered: %d\n",client_sd);
-	// 				FD_SET(client_sd, &socks);
-	// 				if(client_sd> max_fd){ // update max socket bit in the set
-	// 					// max_fd = socket_list[i];
-    //                     max_fd = client_sd;
-    //                     // printf("Hello\n");
-	// 				}
-
-    //                 // for(int i = 0; i<MAX_SOCKET_NUM; i++){
-    //                 //     printf("Socket Num: %d is %d\n",i,socket_list[i]);
-    //                 // }
-	// 				// find the first 0 and set it to client_sd
-	// 				for(int i=0; i<MAX_SOCKET_NUM; i++)
-    //                 {
-	// 					if(socket_list[i]==0)
-    //                     {
-                            
-	// 						socket_list[i] = client_sd;
-    //                         printf("\nSocket Num: %d is %d\n",i,socket_list[i]);
-	// 					    printf("New Connection established!\n");
-	// 					    break;
-    //                     }
-    //                     else{
-    //                         printf("noope.\n");
-    //                     }
-	// 				}
-	// 				break;
-	// 			}
-	// 			else
-    //             { // if it's not server, start serving files
-                    
-    //                 handle_connection(i,users,socket_list);
-    //                 FD_CLR(i, &socks);
-                    
-	// 			}
-	// 		}
-	// 	}
-	// }	
-
-        // int client_sd = accept(server_fd,NULL,NULL);
-            
-        // if(client_sd<1)
-        // {
-        //     perror("Accept Error:");
-        //     return -1;
-        // }
-        // else
-        // {
-        //     // implementing threading to handle connection, serve files and eventually close connection
-        //     int* client_pointer = malloc(sizeof(int));
-        //     *client_pointer = client_sd;
-
-        //     struct arg_struct args;
-        //     args.arg1 = client_sd;
-        //     args.arg2 = users;
-        //     pthread_t thread;
-        //     if(pthread_create(&thread,NULL,handle_connection,(void *)&args) != 0){
-        //         printf("Uh-oh!\n");
-        //         return -1;
-        //     };
-            
-        // }
 
         int client_sd = accept(server_fd,NULL,NULL);
 		
-		int pid = fork(); //fork a child process
+		int pid = fork(); //fork a child process to handle multiple clients parallely
         if (pid == 0){
-            // struct arg_struct args;
-            // args.arg1 = client_sd;
-            // args.arg2 = users;
-            // while(1)
-	        // {
-                handle_connection(client_sd, users);
-            // }
+            handle_connection(client_sd, users); //function to handle communication with client
         }
     
     }
@@ -976,23 +747,3 @@ int main()
 
 
 
-
-// void handle_connection(void *arguments){
-
-
-
-
-//tasks to do:
-
-
-
-//make a user data structure and read from users.txt
-
-//make the main server socket 
-
-//make a system to accepts concurrent clients using select
-
-//implement the method that handles client connections
-    //a.should respond appropriately to all commands
-    //b.should open data connection with port 20 in case of RETR, STOR, LIST 
-    //c.closes client connection
