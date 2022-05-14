@@ -401,7 +401,7 @@ int main(int argc, char *argv[])
                             exit(-1);
                         }
                         
-                        printf("%s\n", response);
+                        
                         //b.server connects to that port using port 20; client accepts connection
                         unsigned int server_data_len = sizeof(server_data_addr);
                         int server_data_sd = accept(client_receiver_sd,(struct sockaddr *) &server_data_addr,&server_data_len);
