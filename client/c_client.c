@@ -98,7 +98,7 @@ int main(int argc, char *argv[])
         bzero(&response,sizeof(response));
         
        
-        
+        bzero(&client_input,sizeof(client_input));
         printf("\nftp> ");
         fgets(command, sizeof(command), stdin); 
         
