@@ -113,8 +113,9 @@ void *handle_list(void *arg){
     if(close(data_fd)<0){
         perror("close error\n");
     };
-
+    exit(0);
     return NULL;
+    
 }
 //a function to close client connections that connect to server -> parameter: client descriptor, user array
 void close_client_connection(int client_sd, struct Users user_array[]){
@@ -380,7 +381,7 @@ void handle_connection(int client_sd, struct Users user_array[MAX_USER]){
             else if(strncmp(client_command, "RETR",4) == 0 ||  strncmp(client_command, "retr",4) == 0) //file sent from server to client
             {
                 //fork a process in order to concurrently in order to not let file transfers block the system
-                int pid = fork();
+                int pid = vfork();
                 if (pid == 0)
                 {
                     cptr = strtok(NULL,delim);
@@ -483,6 +484,7 @@ void handle_connection(int client_sd, struct Users user_array[MAX_USER]){
                         send(client_sd,server_response,strlen(server_response),0);
                         exit(1);
                     }
+                    exit(0);
                 }
                 else{
                     continue;
@@ -491,7 +493,7 @@ void handle_connection(int client_sd, struct Users user_array[MAX_USER]){
             else if(strncmp(client_command, "STOR",4) == 0 ||  strncmp(client_command, "stor",4) == 0) //file sent from client to server
             {
                 //fork a process in order to concurrently in order to not let file transfers block the system
-                int pid = fork();
+                int pid = vfork();
                 if (pid == 0)
                 {
                     cptr = strtok(NULL,delim);
@@ -593,15 +595,22 @@ void handle_connection(int client_sd, struct Users user_array[MAX_USER]){
                         send(client_sd,server_response,strlen(server_response),0);
                         exit(1);
                     }
-                    
+                    exit(0);
+                }
+                else{
+                    continue;
                 }
                 
             }
             else if(strncmp(client_command, "LIST",4) == 0 ||  strncmp(client_command, "list",4) == 0)
             {
                 //create a thread to handle list command
-                pthread_t t;
-                pthread_create(&t, NULL, handle_list, &client_sd);
+                // pthread_t t;
+                // pthread_create(&t, NULL, handle_list, &client_sd);
+                int pid = vfork();
+                if (pid == 0 ){
+                    handle_list(&client_sd);
+                }
                 
             }
             
